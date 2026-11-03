@@ -1,0 +1,5 @@
+artifact: Sivan-unsigned-ipa
+run: 17
+commit: 98a133162f7f238c3c6b258a725a3cffe7115bbf
+built: 2026-11-03 14:29:17 UTC
+note: unsigned ipa, sign it with Sideloadly / AltStore before installing
