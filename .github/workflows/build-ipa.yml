@@ -85,6 +85,29 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # 产物同时推一条 build-output 分支，方便用纯 git 凭据取 ipa（下载 artifact 需要 API token）
+      - name: Publish ipa to build-output branch
+        if: success()
+        run: |
+          set -x
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git checkout --orphan build-output || true
+          git rm -rf . --quiet || true
+          mkdir -p dist
+          cp out/Sivan.ipa dist/Sivan.ipa
+          {
+            echo "artifact: Sivan-unsigned-ipa"
+            echo "run: ${{ github.run_number }}"
+            echo "commit: ${{ github.sha }}"
+            echo "built: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "note: unsigned ipa, sign it with Sideloadly / AltStore before installing"
+          } > dist/BUILD-INFO.txt
+          ls -lh dist
+          git add -f dist
+          git commit -m "ipa from run ${{ github.run_number }}"
+          git push -f origin build-output
+
       - name: Upload build log (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
