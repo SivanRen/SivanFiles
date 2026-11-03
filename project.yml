@@ -15,13 +15,20 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "17.0"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     TARGETED_DEVICE_FAMILY: "1,2"
-    MARKETING_VERSION: "1.1"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "1.2"
+    CURRENT_PROJECT_VERSION: "3"
     CLANG_ENABLE_MODULES: YES
     SWIFT_EMIT_LOC_STRINGS: YES
     SUPPORTS_MACCATALYST: NO
     SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+
+# rar / 7z / tar / xz 解压用 libarchive（BSD-2-Clause），以静态 XCFramework 形式链接进主二进制。
+# 静态库不产生独立的动态框架，所以未签名 ipa 的自签流程不受影响。
+packages:
+  libarchive:
+    url: https://github.com/matteo-pacini/libarchive-for-swift.git
+    exactVersion: 1.0.0
 
 targets:
   Sivan:
@@ -29,6 +36,8 @@ targets:
     platform: iOS
     sources:
       - path: Sivan
+    dependencies:
+      - package: libarchive
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.sivan.files
@@ -38,6 +47,9 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
+        # libarchive 的 XCFramework 自带 zlib/bzip2/xz/zstd，但 iconv 与 libxml2 依赖系统库，
+        # binaryTarget 没有地方声明链接参数，只能在这里补上
+        OTHER_LDFLAGS: "$(inherited) -lxml2 -liconv"
     scheme:
       testTargets: []
       gatherCoverageData: false

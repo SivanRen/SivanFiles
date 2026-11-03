@@ -112,7 +112,7 @@ struct PagedViewer: View {
                     } label: {
                         Label("复制文件", systemImage: "doc.on.doc")
                     }
-                    if FileKind.isZipFamily(current.url) {
+                    if FileKind.canExtract(current.url) {
                         Button {
                             app.extract(current)
                         } label: {

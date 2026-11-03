@@ -42,7 +42,9 @@ enum FileKind {
     static let htmlExts: Set<String> = ["html", "htm", "xhtml", "shtml", "svg", "mhtml", "xht"]
 
     static let archiveExts: Set<String> = [
-        "zip", "jar", "ipa", "apk", "xpi", "epub_zip", "cbz", "war", "aar", "whl", "rar", "7z", "tar", "gz", "tgz", "bz2", "xz", "zst", "lz", "lzma", "cab", "iso"
+        "zip", "jar", "ipa", "apk", "xpi", "epub_zip", "cbz", "war", "aar", "whl",
+        "rar", "7z", "tar", "gz", "tgz", "bz2", "tbz", "tbz2", "xz", "txz",
+        "zst", "lz", "lzma", "cab", "iso", "cpio", "xar", "ar", "deb", "rpm", "lz4"
     ]
 
     static let textExts: Set<String> = [
@@ -60,9 +62,19 @@ enum FileKind {
         archiveExts.contains(url.pathExtension.lowercased())
     }
 
-    /// zip 家族之外（rar/7z）目前只能列表提示，不支持解压
+    /// zip 家族：由工程自带的纯 Swift 实现读取与解压
     static func isZipFamily(_ url: URL) -> Bool {
         ["zip", "jar", "ipa", "apk", "xpi", "cbz", "war", "aar", "whl"].contains(url.pathExtension.lowercased())
+    }
+
+    /// 可解压：zip 家族 + rar / 7z / tar / gz / xz 等（后者由 libarchive 负责）
+    static func canExtract(_ url: URL) -> Bool {
+        isZipFamily(url) || ArchiveService.handles(url)
+    }
+
+    /// 可在 App 内展开条目列表：目前只有 zip 家族
+    static func canBrowseArchive(_ url: URL) -> Bool {
+        isZipFamily(url)
     }
 
     static func kind(for url: URL, isDirectory: Bool) -> PreviewKind {

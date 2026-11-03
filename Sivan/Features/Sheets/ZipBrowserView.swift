@@ -105,8 +105,11 @@ struct ZipBrowserView: View {
     private func load() {
         guard isLoading else { return }
         defer { isLoading = false }
-        guard FileKind.isZipFamily(item.url) else {
-            errorText = "仅支持 zip / jar / ipa / apk 等 zip 系格式"
+        guard FileKind.canBrowseArchive(item.url) else {
+            let ext = item.url.pathExtension.uppercased()
+            errorText = FileKind.canExtract(item.url)
+                ? "\(ext) 格式可在 App 内直接解压，但不支持展开条目列表"
+                : "仅支持 zip / jar / ipa / apk 等 zip 系格式"
             return
         }
         do {

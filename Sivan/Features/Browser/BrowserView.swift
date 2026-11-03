@@ -350,12 +350,14 @@ struct BrowserView: View {
         }
 
         if FileKind.isArchive(item.url) {
-            if app.store.isZip(item.url) {
+            if FileKind.canBrowseArchive(item.url) {
                 Button {
                     app.sheet = .zip(item)
                 } label: {
                     Label("查看压缩包内容", systemImage: "doc.zipper")
                 }
+            }
+            if FileKind.canExtract(item.url) {
                 Button {
                     app.extract(item)
                 } label: {

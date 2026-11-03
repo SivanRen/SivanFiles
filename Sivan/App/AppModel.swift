@@ -249,8 +249,8 @@ final class AppModel: ObservableObject {
     }
 
     func extract(_ item: FileItem) {
-        guard store.isZip(item.url) else {
-            toast("暂只支持 zip 格式解压（rar / 7z 需转存）", isError: true)
+        guard FileKind.canExtract(item.url) else {
+            toast("「\(item.url.pathExtension)」暂不支持解压", isError: true)
             return
         }
         let target = active.url

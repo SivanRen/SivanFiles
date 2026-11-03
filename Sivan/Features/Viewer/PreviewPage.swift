@@ -96,12 +96,14 @@ struct ArchivePage: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(Theme.text)
                     .lineLimit(1)
-                Text("\(entries.count) 个条目 · \(Fmt.size(item.size))")
+                Text(entries.isEmpty
+                     ? "\(item.url.pathExtension.uppercased()) · \(Fmt.size(item.size))"
+                     : "\(entries.count) 个条目 · \(Fmt.size(item.size))")
                     .font(.system(size: 11))
                     .foregroundStyle(Theme.textTertiary)
             }
             Spacer()
-            if FileKind.isZipFamily(item.url) && !entries.isEmpty {
+            if FileKind.canExtract(item.url) && !isLoading {
                 Button {
                     app.extract(item)
                 } label: {
@@ -147,8 +149,11 @@ struct ArchivePage: View {
     private func load() {
         guard isLoading else { return }
         defer { isLoading = false }
-        guard FileKind.isZipFamily(item.url) else {
-            errorText = "该格式暂不支持在线浏览（仅支持 zip / jar / ipa / apk 等）"
+        guard FileKind.canBrowseArchive(item.url) else {
+            let ext = item.url.pathExtension.uppercased()
+            errorText = FileKind.canExtract(item.url)
+                ? "\(ext) 格式支持直接解压，但不支持在应用内浏览条目。点右上角「解压」即可。"
+                : "该格式暂不支持预览"
             return
         }
         do {

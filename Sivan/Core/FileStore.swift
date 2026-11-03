@@ -308,16 +308,24 @@ final class FileStore {
         return try ZipWriter.write(items: items, to: destination)
     }
 
-    /// 解压到以压缩包名命名的子文件夹
+    /// 解压到以压缩包名命名的子文件夹。
+    /// zip 家族走工程自带的纯 Swift 实现，rar / 7z / tar / gz 等走 libarchive。
     @discardableResult
     func extract(_ archive: URL, to directory: URL) throws -> URL {
-        guard isZip(archive) else { throw ZipError.notZip }
-        let zip = try ZipArchive(url: archive)
-        let base = (archive.lastPathComponent as NSString).deletingPathExtension
-        let target = uniqueURL(for: base.isEmpty ? "解压结果" : base, in: directory)
+        let zipLike = isZip(archive)
+        guard zipLike || ArchiveService.handles(archive) else {
+            throw FileError.fail("暂不支持解压「\(archive.pathExtension)」格式")
+        }
+
+        let base = ArchiveService.baseName(for: archive)
+        let target = uniqueURL(for: base, in: directory)
         try fm.createDirectory(at: target, withIntermediateDirectories: true)
         do {
-            try zip.extractAll(to: target)
+            if zipLike {
+                try ZipArchive(url: archive).extractAll(to: target)
+            } else {
+                try ArchiveService.extract(archive, into: target)
+            }
         } catch {
             try? fm.removeItem(at: target)
             throw error

@@ -37,6 +37,21 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      # libarchive 的静态 XCFramework 约 68 MB，缓存下来避免每次重下
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ runner.os }}-${{ hashFiles('project.yml') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Resolve Swift packages
+        run: |
+          set -o pipefail
+          xcodebuild -resolvePackageDependencies \
+            -project Sivan.xcodeproj \
+            -scheme Sivan 2>&1 | tee resolve.log
+
       - name: Build (no codesign)
         run: |
           set -o pipefail
@@ -57,9 +72,9 @@ jobs:
         if: failure()
         run: |
           echo "======================= ERRORS ======================="
-          grep -E "error:|fatal error:" build.log | sort -u | head -n 200 || true
+          cat build.log resolve.log 2>/dev/null | grep -E "error:|fatal error:|error " | sort -u | head -n 200 || true
           echo "==================== ERROR COUNT ===================="
-          grep -cE "error:" build.log || true
+          cat build.log resolve.log 2>/dev/null | grep -cE "error:" || true
 
       - name: Package Payload into ipa
         if: success()
@@ -123,9 +138,10 @@ jobs:
         run: |
           set -x
           mkdir -p /tmp/ci
-          grep -E "error:|fatal error:" build.log | sed -E 's#/Users/runner/work/[^/]+/[^/]+/##' | sort -u > /tmp/ci/errors.txt || true
+          cat build.log resolve.log 2>/dev/null | grep -E "error:|fatal error:|error " | sed -E 's#/Users/runner/work/[^/]+/[^/]+/##' | sort -u > /tmp/ci/errors.txt || true
           head -n 400 /tmp/ci/errors.txt > /tmp/ci/errors-head.txt || true
           cp build.log /tmp/ci/build.log || true
+          cp resolve.log /tmp/ci/resolve.log || true
 
           git config user.name "ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
@@ -135,6 +151,7 @@ jobs:
           cp /tmp/ci/errors.txt ci-log/errors.txt || true
           cp /tmp/ci/errors-head.txt ci-log/errors-head.txt || true
           cp /tmp/ci/build.log ci-log/build.log || true
+          cp /tmp/ci/resolve.log ci-log/resolve.log || true
           git add -f ci-log
           git commit -m "ci log for run ${{ github.run_number }}" || true
           git push -f origin ci-logs
