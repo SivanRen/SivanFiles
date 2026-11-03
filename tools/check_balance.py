@@ -47,6 +47,18 @@ def strip_literals(s):
             in_str = True
             i += 1
             continue
+        # Swift 原始字符串 #"..."# / ##"..."##（正则里常有括号，跳过它们）
+        if c == "#":
+            j = i
+            while j < n and s[j] == "#":
+                j += 1
+            if j < n and s[j] == '"':
+                hashes = j - i
+                terminator = '"' + "#" * hashes
+                k = s.find(terminator, j + 1)
+                if k != -1:
+                    i = k + len(terminator)
+                    continue
         out.append(c)
         i += 1
     return "".join(out)

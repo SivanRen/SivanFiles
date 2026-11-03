@@ -19,6 +19,10 @@ struct PagedViewer: View {
     @State private var infoItem: FileItem?
     @State private var confirmDelete = false
 
+    /// 阅读类内容的搜索状态（文本 / 源码 / HTML 源码共用）
+    @StateObject private var search = ContentSearchStore()
+    @FocusState private var searchFocused: Bool
+
     init(request: PreviewRequest) {
         _items = State(initialValue: request.items)
         _index = State(initialValue: min(max(request.index, 0), max(request.items.count - 1, 0)))
@@ -41,6 +45,12 @@ struct PagedViewer: View {
         isVideo ? 72 : 6
     }
 
+    /// 只有能当文本读的内容才给搜索入口
+    private var canSearch: Bool {
+        guard let kind = current?.kind else { return false }
+        return kind == .text || kind == .code || kind == .html
+    }
+
     var body: some View {
         // 外层 GeometryReader 本身不忽略安全区，才能拿到真实的安全区高度
         GeometryReader { proxy in
@@ -54,6 +64,7 @@ struct PagedViewer: View {
                             isActive: offset == index,
                             topInset: proxy.safeAreaInsets.top + 46
                         )
+                        .environmentObject(search)
                         .tag(offset)
                     }
                 }
@@ -61,7 +72,12 @@ struct PagedViewer: View {
                 .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    topBar
+                    if search.isActive && canSearch {
+                        searchHeader
+                            .transition(.opacity)
+                    } else {
+                        topBar
+                    }
                     Spacer(minLength: 0)
                 }
                 .animation(.easeInOut(duration: 0.22), value: isVideo)
@@ -87,6 +103,126 @@ struct PagedViewer: View {
         } message: {
             Text(current?.name ?? "")
         }
+        .onChange(of: search.isActive) { _, active in
+            guard active else {
+                searchFocused = false
+                return
+            }
+            // 输入框刚插入视图，等一帧再抢焦点
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                searchFocused = true
+            }
+        }
+        .onChange(of: search.showList) { _, open in
+            if open { searchFocused = false }
+        }
+        .onChange(of: index) { _, _ in
+            // 换到另一个文件：旧结果作废，关键词保留给新文件继续搜
+            search.matches = []
+            search.current = 0
+            search.errorText = nil
+            search.showList = false
+            search.revision += 1
+            if !canSearch { search.close() }
+        }
+    }
+
+    // MARK: - 搜索栏（占据顶栏位置）
+
+    private var searchHeader: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+
+                    TextField("搜索内容", text: $search.query)
+                        .focused($searchFocused)
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.text)
+                        .tint(Theme.accent)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled(true)
+                        .submitLabel(.search)
+
+                    if !search.query.isEmpty {
+                        Button {
+                            search.query = ""
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(Capsule().fill(.ultraThinMaterial))
+                .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
+
+                Button {
+                    closeSearch()
+                } label: {
+                    Text("取消")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.accent)
+                }
+                .buttonStyle(.plain)
+            }
+
+            HStack(spacing: 6) {
+                SearchOptionChip(title: "Aa", isOn: search.options.caseSensitive) {
+                    search.options.caseSensitive.toggle()
+                }
+                SearchOptionChip(title: "全字", isOn: search.options.wholeWord) {
+                    search.options.wholeWord.toggle()
+                }
+                SearchOptionChip(title: ".*", isOn: search.options.useRegex) {
+                    search.options.useRegex.toggle()
+                }
+
+                Spacer(minLength: 6)
+
+                searchStatus
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var searchStatus: some View {
+        if let error = search.errorText {
+            Text(error)
+                .font(.system(size: 10.5))
+                .foregroundStyle(Theme.danger)
+        } else if search.query.isEmpty {
+            Text("Aa 区分大小写 · 全字 · .* 正则")
+                .font(.system(size: 10))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        } else if search.matches.isEmpty {
+            Text("无结果")
+                .font(.system(size: 10.5))
+                .foregroundStyle(Theme.textTertiary)
+        } else {
+            Text("\(search.current + 1)/\(search.matches.count)")
+                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    private func openSearch() {
+        withAnimation(.easeOut(duration: 0.18)) { search.open() }
+    }
+
+    private func closeSearch() {
+        searchFocused = false
+        withAnimation(.easeOut(duration: 0.18)) { search.close() }
     }
 
     // MARK: - 顶栏：左上返回，右上省略号
@@ -107,6 +243,10 @@ struct PagedViewer: View {
                     .opacity(counterVisible && !showPanel ? 1 : 0)
                     .allowsHitTesting(false)
                 Spacer(minLength: 8)
+            }
+
+            if canSearch {
+                circleButton("magnifyingglass") { openSearch() }
             }
 
             circleButton("ellipsis") {

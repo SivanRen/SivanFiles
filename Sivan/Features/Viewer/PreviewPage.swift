@@ -21,9 +21,9 @@ struct PreviewPage: View {
             case .audio:
                 AudioPage(url: item.url, isActive: isActive)
             case .text, .code:
-                CodePage(url: item.url, topInset: topInset)
+                CodePage(url: item.url, topInset: topInset, isActive: isActive)
             case .html:
-                WebPage(url: item.url, topInset: topInset)
+                WebPage(url: item.url, topInset: topInset, isActive: isActive)
             case .archive:
                 ArchivePage(item: item, topInset: topInset)
             case .pdf, .office, .unknown, .folder:

@@ -76,16 +76,21 @@ struct WebPage: View {
     let url: URL
     /// 源码视图的顶部留白，避开悬浮的返回 / 省略号按钮
     var topInset: CGFloat = 104
+    var isActive: Bool = true
+
+    @EnvironmentObject private var search: ContentSearchStore
 
     @State private var showSource = false
     @State private var showMenu = false
+    /// 是因为开了搜索才自动切到源码的，搜索关掉后要切回网页
+    @State private var autoSwitched = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             Theme.bg.ignoresSafeArea()
 
             if showSource {
-                CodePage(url: url, topInset: topInset)
+                CodePage(url: url, topInset: topInset, isActive: isActive)
             } else {
                 WebViewRepresentable(url: url) {
                     showMenu = true
@@ -104,6 +109,16 @@ struct WebPage: View {
                 Button("查看源码") { switchTo(true) }
             }
             Button("取消", role: .cancel) {}
+        }
+        .onChange(of: search.isActive) { _, active in
+            // 搜索的是源码文本：开着网页时点搜索，自动切到源码模式
+            if active, !showSource {
+                autoSwitched = true
+                switchTo(true)
+            } else if !active, autoSwitched {
+                autoSwitched = false
+                switchTo(false)
+            }
         }
     }
 

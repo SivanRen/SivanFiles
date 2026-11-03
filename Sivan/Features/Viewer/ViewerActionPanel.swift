@@ -16,11 +16,13 @@ struct ViewerActionPanel: View {
     var onNotify: (String, Bool) -> Void
 
     @EnvironmentObject private var app: AppModel
+    @ObservedObject private var languagePreference = LanguagePreference.shared
 
     @State private var rows: [InfoRow] = []
     @State private var isSaving = false
     @State private var showRename = false
     @State private var renameText = ""
+    @State private var showLanguagePicker = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -61,6 +63,9 @@ struct ViewerActionPanel: View {
             Button("确定") { performRename() }
         } message: {
             Text("文件会保留在原目录")
+        }
+        .sheet(isPresented: $showLanguagePicker) {
+            LanguagePickerView(url: item.url)
         }
     }
 
@@ -150,6 +155,15 @@ struct ViewerActionPanel: View {
                 } else {
                     onNotify("这个文件无法按文本读取", true)
                 }
+            })
+
+            let language = languagePreference.effective(for: item.url)
+            list.append(PanelAction(
+                id: "language",
+                icon: "chevron.left.forwardslash.chevron.right",
+                title: language.isPlain ? "语言 · 纯文本" : "语言 · \(language.shortTitle)"
+            ) {
+                showLanguagePicker = true
             })
         }
 
