@@ -1,0 +1,13 @@
+# 仓库内统一用 LF，避免 Windows 的 autocrlf 把 shell 脚本改成 CRLF（macOS 会报 bad interpreter）
+* text=auto eol=lf
+
+*.sh    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.swift text eol=lf
+*.plist text eol=lf
+*.py    text eol=lf
+
+*.png binary
+*.jpg binary
+*.ipa binary

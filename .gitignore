@@ -1,0 +1,10 @@
+build/
+out/
+DerivedData/
+*.ipa
+*.xcarchive
+.DS_Store
+xcuserdata/
+*.xcuserstate
+Sivan.xcodeproj/project.xcworkspace/xcuserdata/
+assets-src/

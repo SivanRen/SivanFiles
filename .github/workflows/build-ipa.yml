@@ -1,0 +1,93 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths-ignore:
+      - "**.md"
+
+jobs:
+  build:
+    # macos-15 -> Xcode 16.x (iOS 18 SDK)。想用 iOS 26 SDK 可改成 macos-26
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+          swift --version
+
+      - name: Swift source sanity check
+        run: |
+          echo "Swift files: $(find Sivan -name '*.swift' | wc -l)"
+          find Sivan -name '*.swift' | sort > /tmp/swift-files.txt
+          cat /tmp/swift-files.txt
+
+      - name: Install XcodeGen
+        run: |
+          brew install xcodegen
+          xcodegen --version
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (no codesign)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Sivan.xcodeproj \
+            -scheme Sivan \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            OTHER_CODE_SIGN_FLAGS="" \
+            clean build 2>&1 | tee build.log
+
+      - name: Collect compile errors
+        if: failure()
+        run: |
+          echo "======================= ERRORS ======================="
+          grep -E "error:|fatal error:" build.log | sort -u | head -n 200 || true
+          echo "==================== ERROR COUNT ===================="
+          grep -cE "error:" build.log || true
+
+      - name: Package Payload into ipa
+        if: success()
+        run: |
+          set -euo pipefail
+          APP_PATH=$(ls -d build/Build/Products/Release-iphoneos/*.app | head -n 1)
+          echo "Found app: $APP_PATH"
+          rm -rf out
+          mkdir -p out/Payload
+          cp -R "$APP_PATH" out/Payload/
+          if [ -d "out/Payload/Sivan.app/_CodeSignature" ]; then rm -rf "out/Payload/Sivan.app/_CodeSignature"; fi
+          cd out
+          zip -qry Sivan.ipa Payload
+          ls -lh Sivan.ipa
+          unzip -l Sivan.ipa | head -n 20
+
+      - name: Upload ipa
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sivan-unsigned-ipa
+          path: out/Sivan.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload build log (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: warn
+          retention-days: 7
