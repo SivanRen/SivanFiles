@@ -55,16 +55,35 @@
 
 ### 方式 A：GitHub Actions（推荐，完全不需要 Mac）
 
-1. 新建一个 GitHub 仓库，把**本目录（`Sivan/`）里的所有文件**推到仓库根目录
-   （即仓库根目录下能直接看到 `project.yml`、`Sivan/`、`Config/`、`.github/`）
-2. 推送后 Actions 会自动跑 `.github/workflows/build-ipa.yml`
-   （也可以在仓库 Actions 页手动 `Run workflow`）
-3. 跑完在该次运行页面底部下载产物 **`Sivan-unsigned-ipa`**，解压得到 `Sivan.ipa`
+本目录**已经是初始化好的 git 仓库**（分支 `main`，已有首个 commit），只差推到你的 GitHub。
+
+**三步：**
+
+1. 双击上一层的 **`push-to-github.bat`**
+   - 脚本会先打开 https://github.com/new ，你建一个**空仓库**（名字随意，比如 `Sivan`）；
+     **不要**勾选 README / .gitignore / license（否则会跟本地 commit 冲突）
+   - 回到黑窗口，粘贴仓库地址（`https://github.com/你的用户名/Sivan.git`）回车
+   - 首次推送会自动弹浏览器让你登录 GitHub，登录完等它推完
+2. Actions 自动开始跑 `Build unsigned IPA`（约 3–6 分钟）
+3. 跑绿后进入该次运行页面，底部 **Artifacts** 下载 `Sivan-unsigned-ipa`，
+   解压得到 `Sivan.ipa`
+
+**如果编译失败**：同一页面底部会有一个 `build-log` 产物（workflow 里专门加了失败时上传日志 + 汇总 `error:` 行），
+把里面报错的那几行发给我，我按行改。
 
 Workflow 做的事：装 XcodeGen → 生成工程 → `xcodebuild` 以 `CODE_SIGNING_ALLOWED=NO` 编译 Release → 把 `Sivan.app` 塞进 `Payload/` 打成 zip 并改名 `.ipa`。
 
 > 用的是 `macos-15`（Xcode 16 / iOS 18 SDK），产物在 iOS 26 上正常运行。
 > 想用 iOS 26 SDK 编译，把 workflow 里的 `runs-on: macos-15` 改成 `macos-26` 即可。
+
+**手动推送（不想用脚本时）**：
+
+```bash
+cd Sivan
+git remote add origin https://github.com/你的用户名/Sivan.git
+git branch -M main
+git push -u origin main
+```
 
 ### 方式 B：有一台 Mac
 
@@ -111,7 +130,9 @@ Sivan/
 ├─ Sivan.xcodeproj/                # 现成工程（Xcode 16+ 可直接打开）
 ├─ Config/Info.plist               # Bundle 配置：显示名/暗黑模式/文件共享/Open In
 ├─ build-ipa.sh                    # macOS 本地一键打包
-├─ .github/workflows/build-ipa.yml # 云端免签名打包出 ipa
+├─ .gitattributes                  # 强制 LF（否则 Windows 推送后 shell 脚本会在 macOS 报 bad interpreter）
+├─ .github/workflows/build-ipa.yml # 云端免签名打包出 ipa（失败时同时上传日志）
+├─ tools/                          # 自检脚本：Swift 语法树检查、括号配平
 └─ Sivan/
    ├─ App/                         # 入口、全局状态、路由、设置
    ├─ Design/                      # 主题、配色、通用组件
@@ -124,6 +145,8 @@ Sivan/
    │  └─ Sheets/                   # 简介、新建/重命名、设置、分享、压缩包、回收站、存储
    └─ Resources/Assets.xcassets/   # AppIcon（黑色 Win11 文件夹）、AccentColor
 ```
+
+> 本目录已 `git init` 并完成首个 commit（分支 `main`），可直接推送。
 
 ---
 
@@ -153,8 +176,13 @@ Sivan/
 ## 七、验证情况说明
 
 工程在本机（Windows，无 Xcode/Swift 工具链）无法编译验证，代码经过：
-- 33 个 Swift 文件括号/引号配平检查（0 处不平衡）
+- **tree-sitter Swift 语法树全量解析**：33 个文件 0 个 `ERROR` / `MISSING` 节点（`tools/swift_syntax_check.py`）
+- 括号/引号配平检查（`tools/check_balance.py`）
+- `Info.plist` / `project.yml` / workflow YAML / Asset `Contents.json` 全部通过解析校验
 - 逐文件人工核对 API 名称、SwiftUI 修饰器可用版本（全部 ≤ iOS 17 API）
 - 去掉了 iOS 26 独有 API，改用 `ultraThinMaterial` + 自定义配色实现同款「暗黑玻璃」质感，保证用 iOS 18 SDK 也能编过
+- `SWIFT_VERSION = 5.0` + `SWIFT_STRICT_CONCURRENCY = minimal`，避免 Swift 6 严格并发检查把警告升级成错误
+
+以上只覆盖语法与配置层面。**类型层面的错误只能靠真实编译暴露**，所以首次 CI 失败属于正常情况，看 `build-log` 报错即可精确定位。
 
 如果云端编译出现个别报错（Swift 版本差异偶发），把 Actions 的日志贴出来，我按行修。
