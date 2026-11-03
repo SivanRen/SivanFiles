@@ -23,6 +23,8 @@ struct PagedViewer: View {
     @StateObject private var search = ContentSearchStore()
     /// 网页 / 源码切换状态：顶栏「⋯」和页面本体共享
     @StateObject private var webSource = WebSourceStore()
+    /// 文本编辑状态：顶栏「⋯」→「编辑」和页面本体共享
+    @StateObject private var edit = EditStore()
     @FocusState private var searchFocused: Bool
 
     init(request: PreviewRequest) {
@@ -47,10 +49,17 @@ struct PagedViewer: View {
         isVideo ? 72 : 6
     }
 
-    /// 只有能当文本读的内容才给搜索入口
+    /// 只有能当文本读的内容才给搜索入口（编辑中不显示）
     private var canSearch: Bool {
+        guard !editingCurrent else { return false }
         guard let kind = current?.kind else { return false }
         return kind == .text || kind == .code || kind == .html
+    }
+
+    /// 当前文件是否正在编辑
+    private var editingCurrent: Bool {
+        guard let current else { return false }
+        return edit.isEditing(current.url)
     }
 
     var body: some View {
@@ -68,6 +77,7 @@ struct PagedViewer: View {
                         )
                         .environmentObject(search)
                         .environmentObject(webSource)
+                        .environmentObject(edit)
                         .tag(offset)
                     }
                 }
@@ -127,6 +137,10 @@ struct PagedViewer: View {
             search.showList = false
             search.revision += 1
             if !canSearch { search.close() }
+        }
+        .onDisappear {
+            // 退出文本文件 / 关闭预览时，自动关闭编辑功能并丢弃未保存草稿
+            edit.stopAll()
         }
     }
 
@@ -257,12 +271,33 @@ struct PagedViewer: View {
 
             Spacer(minLength: 8)
 
-            if canSearch {
-                circleButton("magnifyingglass") { openSearch() }
-            }
+            if editingCurrent {
+                Button { cancelEditing() } label: {
+                    Text("取消")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                }
+                .buttonStyle(PressableStyle())
 
-            circleButton("ellipsis") {
-                withAnimation(.easeOut(duration: 0.2)) { showPanel = true }
+                Button { saveCurrentEdits() } label: {
+                    Text("保存")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.inverse)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Theme.text))
+                }
+                .buttonStyle(PressableStyle())
+            } else {
+                if canSearch {
+                    circleButton("magnifyingglass") { openSearch() }
+                }
+
+                circleButton("ellipsis") {
+                    withAnimation(.easeOut(duration: 0.2)) { showPanel = true }
+                }
             }
         }
         .padding(.horizontal, 16)
@@ -355,12 +390,36 @@ struct PagedViewer: View {
             )
             .environmentObject(app)
             .environmentObject(webSource)
+            .environmentObject(edit)
             .transition(.move(edge: .bottom))
         }
     }
 
     private func closePanel() {
         withAnimation(.easeOut(duration: 0.2)) { showPanel = false }
+    }
+
+    // MARK: - 编辑保存 / 取消
+
+    private func saveCurrentEdits() {
+        guard let current else { return }
+        let draft = edit.draft(for: current.url) ?? ""
+        do {
+            try app.store.writeText(draft, to: current.url)
+            edit.endEditing(current.url)   // 保留草稿，让 CodePage 把最新内容刷回只读视图
+            app.reloadAll()
+            if items.indices.contains(index) {
+                items[index] = FileItem(url: current.url)
+            }
+            notify("已保存", false)
+        } catch {
+            notify(error.localizedDescription, true)
+        }
+    }
+
+    private func cancelEditing() {
+        guard let current else { return }
+        edit.discard(current.url)
     }
 
     // MARK: - 删除

@@ -277,6 +277,68 @@ struct CodeTextView: UIViewRepresentable {
     }
 }
 
+// MARK: - 可编辑文本视图
+
+/// 编辑模式下的 UITextView：纯文本、等宽字体、可增删改。
+/// 用 `@Binding` 双向绑定草稿，Coordinator 回写时通过「内容是否相等」判断，
+/// 避免每次击键都重置 text 导致光标跳动。
+struct EditorTextView: UIViewRepresentable {
+
+    @Binding var text: String
+    var fontSize: CGFloat = 14
+    var topInset: CGFloat = 62
+    var bottomInset: CGFloat = 150
+    var textColor: UIColor
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> UITextView {
+        let textView = UITextView()
+        textView.delegate = context.coordinator
+        textView.isEditable = true
+        textView.isSelectable = true
+        textView.backgroundColor = .clear
+        textView.showsVerticalScrollIndicator = true
+        textView.alwaysBounceVertical = true
+        textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        textView.textColor = textColor
+        textView.textContainerInset = UIEdgeInsets(
+            top: topInset, left: 14, bottom: bottomInset, right: 14
+        )
+        textView.contentInsetAdjustmentBehavior = .never
+        textView.keyboardDismissMode = .interactive
+        textView.text = text
+        return textView
+    }
+
+    func updateUIView(_ textView: UITextView, context: Context) {
+        if textView.font?.pointSize != fontSize {
+            textView.font = .monospacedSystemFont(ofSize: fontSize, weight: .regular)
+        }
+        if textView.textColor != textColor {
+            textView.textColor = textColor
+        }
+        if textView.textContainerInset.top != topInset {
+            textView.textContainerInset.top = topInset
+        }
+        if textView.textContainerInset.bottom != bottomInset {
+            textView.textContainerInset.bottom = bottomInset
+        }
+        if textView.text != text {
+            textView.text = text
+        }
+    }
+
+    final class Coordinator: NSObject, UITextViewDelegate {
+        var parent: EditorTextView
+        init(_ parent: EditorTextView) { self.parent = parent }
+
+        func textViewDidChange(_ textView: UITextView) {
+            parent.text = textView.text
+        }
+    }
+}
+
 // MARK: - 代码 / 文本页面
 
 struct CodePage: View {
@@ -287,6 +349,8 @@ struct CodePage: View {
     var isActive: Bool = true
 
     @EnvironmentObject private var search: ContentSearchStore
+    /// 文本编辑状态（顶栏「⋯」→「编辑」与页面本体共享）
+    @EnvironmentObject private var edit: EditStore
     @Environment(\.colorScheme) private var scheme
     @ObservedObject private var languagePreference = LanguagePreference.shared
 
@@ -301,17 +365,29 @@ struct CodePage: View {
         languagePreference.effective(for: url)
     }
 
+    private var editing: Bool {
+        edit.isEditing(url)
+    }
+
+    /// 草稿双向绑定：读取编辑中文本、回写草稿
+    private var draftBinding: Binding<String> {
+        Binding(
+            get: { edit.draft(for: url) ?? text ?? "" },
+            set: { edit.updateDraft($0, for: url) }
+        )
+    }
+
     var body: some View {
         ZStack {
             Theme.bg.ignoresSafeArea()
 
             content
 
-            if search.isActive && isActive {
+            if search.isActive && isActive && !editing {
                 bottomBar
             }
 
-            if search.isActive && isActive && search.showList {
+            if search.isActive && isActive && search.showList && !editing {
                 resultsLayer
             }
         }
@@ -334,11 +410,27 @@ struct CodePage: View {
             buildBase()
             applyHighlights()
         }
+        .onChange(of: edit.editingURLs) { _, _ in
+            // 退出编辑：把最新草稿刷回只读视图（保存后草稿保留，取消则无草稿）
+            guard !editing, let draft = edit.draft(for: url), draft != text else { return }
+            text = draft
+            buildBase()
+            applyHighlights()
+        }
     }
 
     @ViewBuilder
     private var content: some View {
-        if let text {
+        if editing, let text {
+            EditorTextView(
+                text: draftBinding,
+                fontSize: CGFloat(AppSettings.shared.codeFontSize),
+                topInset: topInset,
+                bottomInset: 60,
+                textColor: SyntaxPalette.forScheme(scheme).plain
+            )
+            .ignoresSafeArea()
+        } else if let text {
             if text.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "doc")
@@ -529,6 +621,10 @@ struct CodePage: View {
             buildBase()
             applyHighlights()
             loadToken += 1
+            // 空白文件（例如刚新建的文本文件）默认直接进入编辑，方便立刻输入
+            if content.isEmpty {
+                edit.beginEditing(url, initialText: "")
+            }
         } else {
             failed = true
         }

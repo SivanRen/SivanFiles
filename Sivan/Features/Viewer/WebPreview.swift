@@ -127,13 +127,15 @@ struct WebPage: View {
     @EnvironmentObject private var search: ContentSearchStore
     /// 网页 / 源码状态放在共享对象里，顶栏「⋯」→「预览源代码」才能切换过来
     @EnvironmentObject private var webSource: WebSourceStore
+    /// 编辑 HTML 源码时也要切到源码视图
+    @EnvironmentObject private var edit: EditStore
 
     @State private var showMenu = false
     /// 是因为开了搜索才自动切到源码的，搜索关掉后要切回网页
     @State private var autoSwitched = false
 
     private var showSource: Bool {
-        webSource.isSource(url)
+        webSource.isSource(url) || edit.isEditing(url)
     }
 
     var body: some View {
@@ -149,7 +151,7 @@ struct WebPage: View {
                 }
             }
 
-            if showSource {
+            if showSource && !edit.isEditing(url) {
                 sourceChip
                     .transition(.opacity)
             }

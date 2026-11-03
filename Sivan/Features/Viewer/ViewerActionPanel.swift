@@ -17,6 +17,7 @@ struct ViewerActionPanel: View {
 
     @EnvironmentObject private var app: AppModel
     @EnvironmentObject private var webSource: WebSourceStore
+    @EnvironmentObject private var edit: EditStore
     @ObservedObject private var languagePreference = LanguagePreference.shared
 
     @State private var rows: [InfoRow] = []
@@ -161,6 +162,11 @@ struct ViewerActionPanel: View {
         }
 
         if item.kind == .text || item.kind == .code || item.kind == .html {
+            list.append(PanelAction(id: "edit", icon: "pencil.line", title: "编辑") {
+                edit.beginEditing(item.url, initialText: app.store.readText(item.url) ?? "")
+                onClose()
+            })
+
             list.append(PanelAction(id: "copyText", icon: "text.alignleft", title: "复制全文") {
                 if let text = app.store.readText(item.url) {
                     PasteboardService.copyText(text)

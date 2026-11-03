@@ -204,8 +204,10 @@ final class AppModel: ObservableObject {
                 toast("已新建文件夹")
             case .newFile:
                 let fileName = (name as NSString).pathExtension.isEmpty ? name + ".txt" : name
-                try store.createFile(named: fileName, in: active.url)
+                let url = try store.createFile(named: fileName, in: active.url)
                 toast("已新建文件")
+                // 新建的空白文件自动打开，空白内容会触发编辑模式默认开启
+                preview = PreviewRequest(items: [FileItem(url: url)], index: 0)
             case .rename(let item):
                 let newURL = try store.rename(item.url, to: name)
                 if let preview = preview,
