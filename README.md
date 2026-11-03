@@ -71,6 +71,20 @@
 **如果编译失败**：同一页面底部会有一个 `build-log` 产物（workflow 里专门加了失败时上传日志 + 汇总 `error:` 行），
 把里面报错的那几行发给我，我按行改。
 
+**仓库里还有两条回传分支**（CI 自动维护，不用手动碰）：
+
+| 分支 | 内容 | 用途 |
+| --- | --- | --- |
+| `ci-logs` | `ci-log/errors.txt`（去重后的 `error:` 行）、`ci-log/build.log` | 编译失败时直接看报错，不用登录下载 artifact |
+| `build-output` | `dist/Sivan.ipa` + `dist/BUILD-INFO.txt` | 编译成功后直接拿 ipa，浏览器打开该分支点 Download 即可 |
+
+这两条分支都是每次构建 **force push** 覆盖的，只保留最新一次结果，不会无限增长。
+
+> 实测记录：2026-11-03 首次推送后 run #1 失败，报错为 `ImageViewer.swift` 两处
+> `extraneous argument label 'url:'`（`ImageLoader.load/animated` 首参数无标签），
+> 修正后 run #4 编译通过并产出 `Sivan.ipa`（2.2 MB，arm64，`com.sivan.files`）。
+
+
 Workflow 做的事：装 XcodeGen → 生成工程 → `xcodebuild` 以 `CODE_SIGNING_ALLOWED=NO` 编译 Release → 把 `Sivan.app` 塞进 `Payload/` 打成 zip 并改名 `.ipa`。
 
 > 用的是 `macos-15`（Xcode 16 / iOS 18 SDK），产物在 iOS 26 上正常运行。
@@ -176,6 +190,7 @@ Sivan/
 ## 七、验证情况说明
 
 工程在本机（Windows，无 Xcode/Swift 工具链）无法编译验证，代码经过：
+- **已在 GitHub Actions（macos-15 / Xcode 16）真实编译通过**，产出未签名 ipa，Mach-O 为 arm64 `MH_EXECUTE`
 - **tree-sitter Swift 语法树全量解析**：33 个文件 0 个 `ERROR` / `MISSING` 节点（`tools/swift_syntax_check.py`）
 - 括号/引号配平检查（`tools/check_balance.py`）
 - `Info.plist` / `project.yml` / workflow YAML / Asset `Contents.json` 全部通过解析校验
@@ -183,6 +198,8 @@ Sivan/
 - 去掉了 iOS 26 独有 API，改用 `ultraThinMaterial` + 自定义配色实现同款「暗黑玻璃」质感，保证用 iOS 18 SDK 也能编过
 - `SWIFT_VERSION = 5.0` + `SWIFT_STRICT_CONCURRENCY = minimal`，避免 Swift 6 严格并发检查把警告升级成错误
 
-以上只覆盖语法与配置层面。**类型层面的错误只能靠真实编译暴露**，所以首次 CI 失败属于正常情况，看 `build-log` 报错即可精确定位。
+首次云端编译暴露过 2 个类型错误（`ImageLoader` 首参数无标签，调用处误带了 `url:`），已修正。
+**运行时行为（界面、手势、解压、预览的实际情况）未在真机上验证过** —— 本机没有 iOS 设备也无法运行模拟器，
+所以装到手机上后如果哪个功能不对，把现象告诉我。
 
 如果云端编译出现个别报错（Swift 版本差异偶发），把 Actions 的日志贴出来，我按行修。
