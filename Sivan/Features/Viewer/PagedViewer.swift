@@ -28,6 +28,18 @@ struct PagedViewer: View {
         return items[index]
     }
 
+    /// 当前页是不是视频：视频页由 AVKit 接管整屏，系统播放器自带顶栏
+    /// （左上「播放设备/投放」、右上「音量」），我们的悬浮按钮必须让位。
+    private var isVideo: Bool {
+        current?.kind == .video
+    }
+
+    /// 视频页把悬浮按钮整体下移，避开系统播放器顶栏那一条的可点区域。
+    /// 系统播放器的「投放 / 音量」贴着安全区顶部，这里多留一行的高度。
+    private var chromeTopPadding: CGFloat {
+        isVideo ? 72 : 6
+    }
+
     var body: some View {
         // 外层 GeometryReader 本身不忽略安全区，才能拿到真实的安全区高度
         GeometryReader { proxy in
@@ -50,11 +62,12 @@ struct PagedViewer: View {
                 VStack(spacing: 0) {
                     topBar
                     Spacer(minLength: 0)
-                    if items.count > 1 {
+                    if items.count > 1 && !isVideo {
                         pageCounter
                             .padding(.bottom, 14)
                     }
                 }
+                .animation(.easeInOut(duration: 0.22), value: isVideo)
 
                 if showPanel, let current {
                     panelLayer(for: current)
@@ -80,6 +93,9 @@ struct PagedViewer: View {
     }
 
     // MARK: - 顶栏：左上返回，右上省略号
+    //
+    // 视频页特殊处理：系统播放器的「投放 / 音量」就在常规位置的顶栏上，
+    // 这里把整行下移到它的下方（页码也顺势移到中间），避免遮挡原生按键。
 
     private var topBar: some View {
         HStack(spacing: 10) {
@@ -87,12 +103,17 @@ struct PagedViewer: View {
 
             Spacer(minLength: 8)
 
+            if isVideo && items.count > 1 {
+                pageCounter
+                Spacer(minLength: 8)
+            }
+
             circleButton("ellipsis") {
                 withAnimation(.easeOut(duration: 0.2)) { showPanel = true }
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 6)
+        .padding(.top, chromeTopPadding)
         .padding(.bottom, 8)
     }
 
@@ -191,7 +212,7 @@ struct PagedViewer: View {
         if let toast = toastMessage {
             VStack {
                 ToastBanner(toast: toast)
-                    .padding(.top, 54)
+                    .padding(.top, isVideo ? 132 : 54)
                 Spacer()
             }
             .transition(.move(edge: .top).combined(with: .opacity))
