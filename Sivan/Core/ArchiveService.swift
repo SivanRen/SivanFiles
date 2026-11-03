@@ -64,6 +64,7 @@ enum ArchiveService {
 
         var entry: OpaquePointer?
         var extracted = 0
+        var createdDirectories = 0
         var skippedLinks = 0
 
         while true {
@@ -88,6 +89,7 @@ enum ArchiveService {
 
             if isDirectory {
                 try? fm.createDirectory(at: target, withIntermediateDirectories: true)
+                createdDirectories += 1
                 continue
             }
 
@@ -133,11 +135,13 @@ enum ArchiveService {
             extracted += 1
         }
 
-        if extracted == 0 {
+        // 只有「一个条目都没产出」才算空包。只含空文件夹的包不算空，
+        // 只含符号链接的包也算成功（链接已按安全策略跳过）。
+        if extracted == 0 && createdDirectories == 0 {
             if archive_read_has_encrypted_entries(handle) == 1 {
                 throw ArchiveError.encrypted
             }
-            if skippedLinks > 0 { return }   // 只有链接，算成功但没产出文件
+            if skippedLinks > 0 { return }
             throw ArchiveError.empty
         }
     }
