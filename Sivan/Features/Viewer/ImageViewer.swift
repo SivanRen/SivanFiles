@@ -126,7 +126,7 @@ struct ZoomableImageView: UIViewRepresentable {
     func makeUIView(context: Context) -> ZoomScrollView {
         let view = ZoomScrollView()
         DispatchQueue.global(qos: .userInitiated).async {
-            let image = ImageLoader.load(url: url, maxPixel: 2800)
+            let image = ImageLoader.load(url, maxPixel: 2800)
             DispatchQueue.main.async {
                 if let image { view.setImage(image) }
             }
@@ -148,7 +148,7 @@ struct AnimatedImageView: UIViewRepresentable {
         imageView.clipsToBounds = true
         imageView.backgroundColor = .clear
         DispatchQueue.global(qos: .userInitiated).async {
-            let image = ImageLoader.animated(url: url)
+            let image = ImageLoader.animated(url)
             DispatchQueue.main.async {
                 imageView.image = image
                 imageView.startAnimating()
