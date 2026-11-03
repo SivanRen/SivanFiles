@@ -79,11 +79,16 @@ struct WebPage: View {
     var isActive: Bool = true
 
     @EnvironmentObject private var search: ContentSearchStore
+    /// 网页 / 源码状态放在共享对象里，顶栏「⋯」→「预览源代码」才能切换过来
+    @EnvironmentObject private var webSource: WebSourceStore
 
-    @State private var showSource = false
     @State private var showMenu = false
     /// 是因为开了搜索才自动切到源码的，搜索关掉后要切回网页
     @State private var autoSwitched = false
+
+    private var showSource: Bool {
+        webSource.isSource(url)
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -91,6 +96,7 @@ struct WebPage: View {
 
             if showSource {
                 CodePage(url: url, topInset: topInset, isActive: isActive)
+                    .transition(.opacity)
             } else {
                 WebViewRepresentable(url: url) {
                     showMenu = true
@@ -122,8 +128,14 @@ struct WebPage: View {
             }
         }
         .onAppear {
-            // 先开了搜索再滑到这一页：直接进源码模式
+            // 先开了搜索、或先在详情里点了「预览源代码」，再滑到这一页也要进源码
             guard isActive, search.isActive, !showSource else { return }
+            autoSwitched = true
+            switchTo(true)
+        }
+        .onChange(of: isActive) { _, active in
+            // TabView 会预加载相邻页，滑过来时 onAppear 不一定再触发
+            guard active, search.isActive, !showSource else { return }
             autoSwitched = true
             switchTo(true)
         }
@@ -135,7 +147,7 @@ struct WebPage: View {
 
     private func switchTo(_ source: Bool) {
         withAnimation(.easeInOut(duration: 0.18)) {
-            showSource = source
+            webSource.setSource(url, source)
         }
     }
 

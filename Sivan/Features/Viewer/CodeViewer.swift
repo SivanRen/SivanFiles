@@ -227,20 +227,45 @@ struct CodeTextView: UIViewRepresentable {
         if textView.attributedText != attributed {
             textView.attributedText = attributed
         }
+        if textView.textContainerInset.top != topInset {
+            textView.textContainerInset.top = topInset
+        }
         if textView.textContainerInset.bottom != bottomInset {
             textView.textContainerInset.bottom = bottomInset
         }
-        if let target = scrollTarget, context.coordinator.lastToken != target.token {
-            context.coordinator.lastToken = target.token
-            let range = target.range
-            DispatchQueue.main.async {
-                guard NSMaxRange(range) <= textView.attributedText.length else { return }
-                textView.scrollRangeToVisible(range)
-                // scrollRangeToVisible 会贴着边缘停，往上再挪一点更好读
-                textView.setContentOffset(
-                    CGPoint(x: 0, y: max(textView.contentOffset.y - 120, 0)),
-                    animated: true
-                )
+        guard let target = scrollTarget,
+              context.coordinator.lastToken != target.token else { return }
+
+        context.coordinator.lastToken = target.token
+        let range = target.range
+
+        // scrollRangeToVisible 在带大 textContainerInset 的只读 UITextView 上常常
+        // 贴边甚至不动（尤其底部留白很大时），这里用 layoutManager 直接算出命中行的
+        // 真实 y，再一次性把这一行送到可视区上方约三分之一处。
+        DispatchQueue.main.async {
+            guard let attr = textView.attributedText,
+                  NSMaxRange(range) <= attr.length else { return }
+            textView.layoutIfNeeded()
+
+            let manager = textView.layoutManager
+            let glyphs = manager.glyphRange(
+                forCharacterRange: range, actualCharacterRange: nil
+            )
+            var rect = manager.boundingRect(
+                forGlyphRange: glyphs, in: textView.textContainer
+            )
+            rect.origin.y += textView.textContainerInset.top
+
+            let usable = max(
+                140,
+                textView.bounds.height - textView.textContainerInset.top - 100
+            )
+            let desired = rect.midY - usable * 0.32
+            let ceiling = max(0, textView.contentSize.height - textView.bounds.height)
+            let y = min(max(desired, 0), ceiling)
+
+            UIView.animate(withDuration: 0.26, delay: 0, options: .curveEaseOut) {
+                textView.setContentOffset(CGPoint(x: 0, y: y), animated: false)
             }
         }
     }
@@ -294,6 +319,10 @@ struct CodePage: View {
             applyHighlights()
             scrollToCurrent()
         }
+        .onChange(of: search.showList) { _, open in
+            // 从结果列表里点了一条（current 可能没变），关上列表后补一次定位
+            if !open { scrollToCurrent() }
+        }
         .onChange(of: scheme) { _, _ in
             buildBase()
             applyHighlights()
@@ -320,7 +349,7 @@ struct CodePage: View {
             } else {
                 CodeTextView(
                     attributed: rendered ?? NSAttributedString(string: text),
-                    topInset: topInset,
+                    topInset: topInset + (search.isActive && isActive ? 96 : 0),
                     bottomInset: search.isActive && isActive ? 380 : 150,
                     scrollTarget: scrollTarget
                 )

@@ -18,6 +18,8 @@ struct SearchMatch: Identifiable {
     let id: Int
     /// 在全文中的位置
     let range: NSRange
+    /// 命中所在行的整行范围（含行尾换行符），用来给整行刷底色
+    let lineRange: NSRange
     /// 行号（从 1 开始）
     let line: Int
     /// 该行完整内容（不含换行符）
@@ -131,6 +133,7 @@ enum ContentSearch {
                 SearchMatch(
                     id: matches.count,
                     range: result.range,
+                    lineRange: hit.range,
                     line: hit.line,
                     lineText: lineText,
                     highlightInLine: NSRange(
@@ -154,8 +157,17 @@ enum ContentSearch {
         guard !matches.isEmpty else { return base }
 
         let output = NSMutableAttributedString(attributedString: base)
-        let normal = UIColor.systemYellow.withAlphaComponent(0.30)
-        let active = UIColor.systemOrange.withAlphaComponent(0.78)
+        let normal = UIColor.systemYellow.withAlphaComponent(0.28)
+        let active = UIColor.systemOrange.withAlphaComponent(0.80)
+        let activeRow = UIColor.systemOrange.withAlphaComponent(0.14)
+
+        // 当前命中所在的一整行先刷一层淡底色，翻上一条/下一条时一眼能看出跳到了哪一行
+        if matches.indices.contains(current) {
+            let row = matches[current].lineRange
+            if NSMaxRange(row) <= output.length {
+                output.addAttribute(.backgroundColor, value: activeRow, range: row)
+            }
+        }
 
         for match in matches where NSMaxRange(match.range) <= output.length {
             output.addAttribute(.backgroundColor, value: normal, range: match.range)
@@ -284,14 +296,20 @@ struct SearchOptionChip: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 11, weight: isOn ? .semibold : .regular, design: .monospaced))
-                .foregroundStyle(isOn ? Theme.inverse : Theme.textSecondary)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
+                .font(.system(size: 12.5, weight: isOn ? .semibold : .medium))
+                .foregroundStyle(isOn ? Theme.inverse : Theme.text)
+                .lineLimit(1)
+                .padding(.horizontal, 13)
+                .frame(height: 34)
                 .background(
-                    Capsule().fill(isOn ? AnyShapeStyle(Theme.text) : AnyShapeStyle(.ultraThinMaterial))
+                    Capsule().fill(
+                        isOn ? AnyShapeStyle(Theme.text) : AnyShapeStyle(Theme.veil(0.10))
+                    )
                 )
-                .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
+                .overlay(
+                    Capsule().strokeBorder(isOn ? Color.clear : Theme.stroke, lineWidth: 1)
+                )
+                .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }

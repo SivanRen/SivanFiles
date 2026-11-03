@@ -16,6 +16,7 @@ struct ViewerActionPanel: View {
     var onNotify: (String, Bool) -> Void
 
     @EnvironmentObject private var app: AppModel
+    @EnvironmentObject private var webSource: WebSourceStore
     @ObservedObject private var languagePreference = LanguagePreference.shared
 
     @State private var rows: [InfoRow] = []
@@ -144,6 +145,18 @@ struct ViewerActionPanel: View {
         if FileKind.canExtract(item.url) {
             list.append(PanelAction(id: "extract", icon: "arrow.down.doc", title: "解压") {
                 onExtract()
+            })
+        }
+
+        if item.kind == .html {
+            let isSource = webSource.isSource(item.url)
+            list.append(PanelAction(
+                id: "viewSource",
+                icon: isSource ? "globe" : "chevron.left.forwardslash.chevron.right",
+                title: isSource ? "显示网页" : "预览源代码"
+            ) {
+                webSource.setSource(item.url, !isSource)
+                onClose()
             })
         }
 

@@ -21,6 +21,8 @@ struct PagedViewer: View {
 
     /// 阅读类内容的搜索状态（文本 / 源码 / HTML 源码共用）
     @StateObject private var search = ContentSearchStore()
+    /// 网页 / 源码切换状态：顶栏「⋯」和页面本体共享
+    @StateObject private var webSource = WebSourceStore()
     @FocusState private var searchFocused: Bool
 
     init(request: PreviewRequest) {
@@ -65,6 +67,7 @@ struct PagedViewer: View {
                             topInset: proxy.safeAreaInsets.top + 46
                         )
                         .environmentObject(search)
+                        .environmentObject(webSource)
                         .tag(offset)
                     }
                 }
@@ -128,18 +131,20 @@ struct PagedViewer: View {
     }
 
     // MARK: - 搜索栏（占据顶栏位置）
+    //
+    // 整块压在内容上方：底衬用模糊材质 + 一层背景色，源码再密也不会透上来干扰阅读。
 
     private var searchHeader: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             HStack(spacing: 10) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Theme.textTertiary)
 
                     TextField("搜索内容", text: $search.query)
                         .focused($searchFocused)
-                        .font(.system(size: 13))
+                        .font(.system(size: 15))
                         .foregroundStyle(Theme.text)
                         .tint(Theme.accent)
                         .textInputAutocapitalization(.never)
@@ -151,35 +156,36 @@ struct PagedViewer: View {
                             search.query = ""
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 15))
                                 .foregroundStyle(Theme.textTertiary)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(Capsule().fill(.ultraThinMaterial))
+                .padding(.horizontal, 14)
+                .frame(height: 46)
+                .background(Capsule().fill(Theme.veil(0.06)))
                 .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
 
                 Button {
                     closeSearch()
                 } label: {
                     Text("取消")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Theme.accent)
+                        .padding(.vertical, 10)
                 }
                 .buttonStyle(.plain)
             }
 
-            HStack(spacing: 6) {
-                SearchOptionChip(title: "Aa", isOn: search.options.caseSensitive) {
+            HStack(spacing: 8) {
+                SearchOptionChip(title: "Aa 大小写", isOn: search.options.caseSensitive) {
                     search.options.caseSensitive.toggle()
                 }
-                SearchOptionChip(title: "全字", isOn: search.options.wholeWord) {
+                SearchOptionChip(title: "全字匹配", isOn: search.options.wholeWord) {
                     search.options.wholeWord.toggle()
                 }
-                SearchOptionChip(title: ".*", isOn: search.options.useRegex) {
+                SearchOptionChip(title: "正则 .*", isOn: search.options.useRegex) {
                     search.options.useRegex.toggle()
                 }
 
@@ -188,32 +194,45 @@ struct PagedViewer: View {
                 searchStatus
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background {
+            ZStack {
+                Rectangle().fill(.regularMaterial)
+                Rectangle().fill(Theme.bg.opacity(0.62))
+            }
+            .overlay(alignment: .bottom) { Hairline() }
+            .ignoresSafeArea(edges: .top)
+        }
     }
 
     @ViewBuilder
     private var searchStatus: some View {
         if let error = search.errorText {
-            Text(error)
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.danger)
-        } else if search.query.isEmpty {
-            Text("Aa 区分大小写 · 全字 · .* 正则")
-                .font(.system(size: 10))
-                .foregroundStyle(Theme.textTertiary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        } else if search.matches.isEmpty {
-            Text("无结果")
-                .font(.system(size: 10.5))
-                .foregroundStyle(Theme.textTertiary)
-        } else {
-            Text("\(search.current + 1)/\(search.matches.count)")
-                .font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.textSecondary)
+            statusBadge(error, tint: Theme.danger)
+        } else if !search.query.isEmpty {
+            if search.matches.isEmpty {
+                statusBadge("无结果", tint: Theme.textTertiary)
+            } else {
+                statusBadge(
+                    "\(search.current + 1)/\(search.matches.count)",
+                    tint: Theme.textSecondary,
+                    mono: true
+                )
+            }
         }
+    }
+
+    private func statusBadge(_ text: String, tint: Color, mono: Bool = false) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .medium, design: mono ? .monospaced : .default))
+            .foregroundStyle(tint)
+            .lineLimit(1)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Capsule().fill(Theme.veil(0.06)))
+            .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
     }
 
     private func openSearch() {
@@ -333,6 +352,7 @@ struct PagedViewer: View {
                 }
             )
             .environmentObject(app)
+            .environmentObject(webSource)
             .transition(.move(edge: .bottom))
         }
     }
