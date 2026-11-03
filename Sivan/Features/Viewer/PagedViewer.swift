@@ -411,9 +411,9 @@ struct PagedViewer: View {
             if items.indices.contains(index) {
                 items[index] = FileItem(url: current.url)
             }
-            notify("已保存", false)
+            notify("已保存", isError: false)
         } catch {
-            notify(error.localizedDescription, true)
+            notify(error.localizedDescription, isError: true)
         }
     }
 
