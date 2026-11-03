@@ -36,10 +36,16 @@ final class FileStore {
         root = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         try? fm.createDirectory(at: trashURL, withIntermediateDirectories: true)
-        try? fm.createDirectory(at: inboxURL, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: importURL, withIntermediateDirectories: true)
     }
 
     var trashURL: URL { root.appendingPathComponent(".SivanTrash", isDirectory: true) }
+
+    /// 用户可见的「导入」目录：从其他 App 传进来的文件统一落到这里
+    var importURL: URL { root.appendingPathComponent("导入", isDirectory: true) }
+
+    /// **系统保留目录**。iOS 通过「用 Sivan 打开」投递文件时会往这里放，
+    /// App 不应该主动写入（会被沙盒判为无许可）。这里只用于导入成功后清理临时副本。
     var inboxURL: URL { root.appendingPathComponent("Inbox", isDirectory: true) }
 
     var rootTitle: String { "我的文件" }

@@ -3,7 +3,7 @@ import zipfile
 
 ROOT = os.path.abspath("Sivan")
 OUT = os.path.abspath("Sivan-source.zip")
-SKIP_DIRS = {"assets-src", "build", "out", "__pycache__"}
+SKIP_DIRS = {"assets-src", "build", "out", "__pycache__", ".git"}
 SKIP_FILES = {".DS_Store"}
 
 if os.path.exists(OUT):

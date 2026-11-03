@@ -36,8 +36,12 @@
 	<string>UIStatusBarStyleLightContent</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
+	<!-- 必须为 false：为 true 时 iOS 会把「来源 App 容器里的原始 URL」直接交给我们，
+	     第三方 App（微信/QQ）的文件位于对方 Documents/Inbox，跨容器读取会报
+	     NSCocoaErrorDomain 257「没有访问 Inbox 的许可」。
+	     设为 false 后系统会先把文件复制进本 App 的 Documents/Inbox，再由我们搬运，最稳。 -->
 	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
+	<false/>
 	<key>UISupportsDocumentBrowser</key>
 	<false/>
 	<key>UILaunchScreen</key>

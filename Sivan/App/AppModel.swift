@@ -300,14 +300,21 @@ final class AppModel: ObservableObject {
                 return
             }
             var count = 0
+            var firstError: String?
             for url in urls {
-                let scoped = url.startAccessingSecurityScopedResource()
-                defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-                let destination = FileStore.shared.uniqueURL(for: url.lastPathComponent, in: target)
-                if (try? FileManager.default.copyItem(at: url, to: destination)) != nil { count += 1 }
+                do {
+                    try IngestService.ingest(url, into: target)
+                    count += 1
+                } catch {
+                    if firstError == nil { firstError = error.localizedDescription }
+                }
             }
             reloadAll()
-            toast(count > 0 ? "已粘贴 \(count) 个文件" : "粘贴失败，来源不可访问", isError: count == 0)
+            if count > 0 {
+                toast("已粘贴 \(count) 个文件")
+            } else {
+                toast("粘贴失败：\(firstError ?? "来源不可访问")", isError: true)
+            }
         }
     }
 
@@ -319,14 +326,21 @@ final class AppModel: ObservableObject {
         guard !urls.isEmpty else { return }
         let target = active.url
         var count = 0
+        var firstError: String?
         for url in urls {
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            let destination = store.uniqueURL(for: url.lastPathComponent, in: target)
-            if (try? FileManager.default.copyItem(at: url, to: destination)) != nil { count += 1 }
+            do {
+                try IngestService.ingest(url, into: target)
+                count += 1
+            } catch {
+                if firstError == nil { firstError = error.localizedDescription }
+            }
         }
         reloadAll()
-        toast(count > 0 ? "已导入 \(count) 项" : "导入失败", isError: count == 0)
+        if count > 0 {
+            toast("已导入 \(count) 项")
+        } else {
+            toast("导入失败：\(firstError ?? "来源不可访问")", isError: true)
+        }
     }
 
     func share(_ urls: [URL]) {
@@ -337,17 +351,14 @@ final class AppModel: ObservableObject {
     /// 从其他 App 通过“用 Sivan 打开”传入的文件
     func handleIncoming(url: URL) {
         guard url.isFileURL else { return }
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-
-        try? FileManager.default.createDirectory(at: store.inboxURL, withIntermediateDirectories: true)
-        let destination = store.uniqueURL(for: url.lastPathComponent, in: store.inboxURL)
-
+        let folder = store.importURL
         do {
-            try FileManager.default.copyItem(at: url, to: destination)
+            let destination = try IngestService.ingest(url, into: folder)
+            // 系统投递到 Documents/Inbox 的临时副本，导入成功后清掉
+            IngestService.cleanUpDeliveredCopy(url)
             toast("已导入 \(destination.lastPathComponent)")
-            if active.url.standardizedFileURL != store.inboxURL.standardizedFileURL {
-                active.navigate(to: store.inboxURL)
+            if active.url.standardizedFileURL != folder.standardizedFileURL {
+                active.navigate(to: folder)
             }
             reloadAll()
         } catch {
