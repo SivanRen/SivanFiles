@@ -18,6 +18,25 @@ enum PreviewKind {
     case unknown
 }
 
+extension PreviewKind {
+
+    /// 分页浏览分组：左右滑动只在「同一种类型」的文件之间切换，
+    /// 例如看图时只翻图片、看视频时只翻视频，不会突然跳到压缩包或文件夹。
+    var browseGroup: Int {
+        switch self {
+        case .image, .gif: return 0      // 图片与动图算一类
+        case .video: return 1
+        case .audio: return 2
+        case .pdf: return 3
+        case .office: return 4
+        case .text, .code: return 5      // 文本与源码都是代码视图
+        case .html: return 6
+        case .archive: return 7
+        case .folder, .unknown: return 8
+        }
+    }
+}
+
 enum FileKind {
 
     static let imageExts: Set<String> = [

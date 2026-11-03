@@ -140,19 +140,27 @@ final class AppModel: ObservableObject {
     }
 
     func previewFile(_ item: FileItem) {
-        let files = active.visibleItems.filter { !$0.isDirectory }
-        guard !files.isEmpty else {
+        let all = active.visibleItems.filter { !$0.isDirectory }
+        guard !all.isEmpty else {
             toast("这里没有可预览的文件", isError: true)
             return
         }
+        // 左右滑动只在「同一目录 + 同一类型」的文件之间切换
+        let group = item.kind.browseGroup
+        let sameKind = all.filter { $0.kind.browseGroup == group }
+        let files = sameKind.isEmpty ? [item] : sameKind
         let index = files.firstIndex(where: { $0.url == item.url }) ?? 0
         preview = PreviewRequest(items: files, index: index)
     }
 
     func preview(urls: [URL], startAt index: Int = 0) {
-        let files = urls.map { FileItem(url: $0) }.filter { !$0.isDirectory }
-        guard !files.isEmpty else { return }
-        preview = PreviewRequest(items: files, index: min(max(index, 0), files.count - 1))
+        let all = urls.map { FileItem(url: $0) }.filter { !$0.isDirectory }
+        guard !all.isEmpty else { return }
+        let anchor = all[min(max(index, 0), all.count - 1)]
+        let sameKind = all.filter { $0.kind.browseGroup == anchor.kind.browseGroup }
+        let files = sameKind.isEmpty ? all : sameKind
+        let start = files.firstIndex(where: { $0.url == anchor.url }) ?? 0
+        preview = PreviewRequest(items: files, index: start)
     }
 
     // MARK: - 页面切换

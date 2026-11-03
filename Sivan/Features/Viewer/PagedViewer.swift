@@ -11,6 +11,7 @@ struct PagedViewer: View {
     @State private var items: [FileItem]
     @State private var index: Int
     @State private var showPanel = false
+    @State private var counterVisible = false
     @State private var toastMessage: ToastMessage?
 
     @State private var shareItems: [Any] = []
@@ -62,10 +63,6 @@ struct PagedViewer: View {
                 VStack(spacing: 0) {
                     topBar
                     Spacer(minLength: 0)
-                    if items.count > 1 && !isVideo {
-                        pageCounter
-                            .padding(.bottom, 14)
-                    }
                 }
                 .animation(.easeInOut(duration: 0.22), value: isVideo)
 
@@ -94,8 +91,10 @@ struct PagedViewer: View {
 
     // MARK: - 顶栏：左上返回，右上省略号
     //
+    // 底栏不再显示任何内容（不列最近打开的文件），页码只在切换/刚打开时
+    // 于顶栏中间短暂浮现一下就淡出，不长期占版面。
     // 视频页特殊处理：系统播放器的「投放 / 音量」就在常规位置的顶栏上，
-    // 这里把整行下移到它的下方（页码也顺势移到中间），避免遮挡原生按键。
+    // 这里把整行下移到它的下方，避免遮挡原生按键。
 
     private var topBar: some View {
         HStack(spacing: 10) {
@@ -103,8 +102,10 @@ struct PagedViewer: View {
 
             Spacer(minLength: 8)
 
-            if isVideo && items.count > 1 {
+            if items.count > 1 {
                 pageCounter
+                    .opacity(counterVisible && !showPanel ? 1 : 0)
+                    .allowsHitTesting(false)
                 Spacer(minLength: 8)
             }
 
@@ -115,6 +116,16 @@ struct PagedViewer: View {
         .padding(.horizontal, 16)
         .padding(.top, chromeTopPadding)
         .padding(.bottom, 8)
+        .task(id: index) {
+            guard items.count > 1 else { return }
+            withAnimation(.easeOut(duration: 0.15)) { counterVisible = true }
+            do {
+                try await Task.sleep(nanoseconds: 1_400_000_000)
+            } catch {
+                return
+            }
+            withAnimation(.easeOut(duration: 0.35)) { counterVisible = false }
+        }
     }
 
     private func circleButton(_ symbol: String, action: @escaping () -> Void) -> some View {
@@ -129,7 +140,7 @@ struct PagedViewer: View {
         .buttonStyle(PressableStyle())
     }
 
-    /// 轻量页码（不是文件列表，仅提示当前是第几个）
+    /// 轻量页码（不是文件列表，仅提示当前是同类型文件里的第几个）
     private var pageCounter: some View {
         Text("\(index + 1) / \(items.count)")
             .font(.system(size: 10.5, weight: .medium, design: .monospaced))
@@ -138,7 +149,6 @@ struct PagedViewer: View {
             .padding(.vertical, 5)
             .background(Capsule().fill(.ultraThinMaterial))
             .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
-            .opacity(showPanel ? 0 : 1)
     }
 
     // MARK: - 快捷栏
