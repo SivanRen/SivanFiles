@@ -239,34 +239,36 @@ struct CodeTextView: UIViewRepresentable {
         context.coordinator.lastToken = target.token
         let range = target.range
 
-        // scrollRangeToVisible 在带大 textContainerInset 的只读 UITextView 上常常
-        // 贴边甚至不动（尤其底部留白很大时），这里用 layoutManager 直接算出命中行的
-        // 真实 y，再一次性把这一行送到可视区上方约三分之一处。
+        // 之前用 boundingRect(forGlyphRange:in:) 算的是「命中词」的外接框，且没把
+        // textContainerInset.top 加进去，大文档里会差出整段距离。这里改成：
+        //   1) ensureLayout 强制完成排版（TextKit 2 是惰性/异步排版，不强制会算错）
+        //   2) 取命中词所在「整行」的 lineFragmentRect
+        //   3) 换算到内容坐标系后，让这一行居中；前后内容不足时自然贴顶 / 贴底
         DispatchQueue.main.async {
             guard let attr = textView.attributedText,
                   NSMaxRange(range) <= attr.length else { return }
-            textView.layoutIfNeeded()
 
             let manager = textView.layoutManager
+            let container = textView.textContainer
+            manager.ensureLayout(for: container)
+
             let glyphs = manager.glyphRange(
                 forCharacterRange: range, actualCharacterRange: nil
             )
-            var rect = manager.boundingRect(
-                forGlyphRange: glyphs, in: textView.textContainer
+            guard glyphs.location != NSNotFound else { return }
+            let lineRect = manager.lineFragmentRect(
+                forGlyphAt: glyphs.location, effectiveRange: nil
             )
-            rect.origin.y += textView.textContainerInset.top
+            guard lineRect != .zero, lineRect != .null else { return }
 
-            let usable = max(
-                140,
-                textView.bounds.height - textView.textContainerInset.top - 100
-            )
-            let desired = rect.midY - usable * 0.32
-            let ceiling = max(0, textView.contentSize.height - textView.bounds.height)
-            let y = min(max(desired, 0), ceiling)
+            // lineFragmentRect 是 TextKit 坐标（不含 textContainerInset），加上顶部 inset
+            let lineCenter = lineRect.midY + textView.textContainerInset.top
 
-            UIView.animate(withDuration: 0.26, delay: 0, options: .curveEaseOut) {
-                textView.setContentOffset(CGPoint(x: 0, y: y), animated: false)
-            }
+            let maxOffset = max(0, textView.contentSize.height - textView.bounds.height)
+            let desired = lineCenter - textView.bounds.height / 2
+            let y = min(max(desired, 0), maxOffset)
+
+            textView.setContentOffset(CGPoint(x: 0, y: y), animated: true)
         }
     }
 

@@ -20,9 +20,15 @@ struct WebViewRepresentable: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.isOpaque = false
-        webView.backgroundColor = .clear
+        // 先垫一层主题背景色，网页背景探测出来之前也不会露出黑边
+        webView.backgroundColor = Theme.bgUIColor
         webView.scrollView.backgroundColor = .clear
         webView.allowsBackForwardNavigationGestures = true
+
+        // 网页铺满整屏：关掉安全区内边距，白底等内容直接延伸到状态栏 / 底栏之下
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.contentInset = .zero
+        webView.navigationDelegate = context.coordinator
 
         // 长按页面 → 查看源码。与 WebKit 自己的手势并存，不影响正常的滚动与点按。
         let press = UILongPressGestureRecognizer(
@@ -43,7 +49,7 @@ struct WebViewRepresentable: UIViewRepresentable {
         context.coordinator.onLongPress = onLongPress
     }
 
-    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate, WKNavigationDelegate {
 
         var onLongPress: () -> Void
 
@@ -62,6 +68,46 @@ struct WebViewRepresentable: UIViewRepresentable {
             shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
         ) -> Bool {
             true
+        }
+
+        // MARK: 探测网页背景色，把安全区露出来的「黑边」换成网页自己的底色
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            let script = """
+            (function () {
+                var root = document.compatMode === 'CSS1Compat'
+                    ? document.documentElement : document.body;
+                return getComputedStyle(root).backgroundColor || '';
+            })();
+            """
+            webView.evaluateJavaScript(script) { [weak webView] result, _ in
+                guard let webView, let raw = result as? String else { return }
+                Self.applyBackground(raw, to: webView)
+            }
+        }
+
+        /// 解析 "rgb(255,255,255)" / "rgba(...,0.3)"，透明度太低就不覆盖，保留主题底色
+        private static func applyBackground(_ raw: String, to webView: WKWebView) {
+            let pattern = #"(\d+(?:\.\d+)?)"#
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return }
+            let range = NSRange(raw.startIndex..., in: raw)
+            let values = regex.matches(in: raw, range: range)
+                .prefix(4)
+                .compactMap { match -> Double? in
+                    guard let r = Range(match.range, in: raw) else { return nil }
+                    return Double(raw[r])
+                }
+            guard values.count >= 3 else { return }
+            let alpha = values.count >= 4 ? CGFloat(values[3]) : 1
+            guard alpha > 0.2 else { return }
+            let color = UIColor(
+                red: CGFloat(values[0]) / 255,
+                green: CGFloat(values[1]) / 255,
+                blue: CGFloat(values[2]) / 255,
+                alpha: 1
+            )
+            webView.backgroundColor = color
+            webView.scrollView.backgroundColor = color
         }
     }
 }

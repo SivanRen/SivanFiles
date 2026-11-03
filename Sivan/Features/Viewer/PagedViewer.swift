@@ -257,13 +257,6 @@ struct PagedViewer: View {
 
             Spacer(minLength: 8)
 
-            if items.count > 1 {
-                pageCounter
-                    .opacity(counterVisible && !showPanel ? 1 : 0)
-                    .allowsHitTesting(false)
-                Spacer(minLength: 8)
-            }
-
             if canSearch {
                 circleButton("magnifyingglass") { openSearch() }
             }
@@ -275,6 +268,15 @@ struct PagedViewer: View {
         .padding(.horizontal, 16)
         .padding(.top, chromeTopPadding)
         .padding(.bottom, 8)
+        .overlay {
+            // 页码用 overlay 严格居中：左右按钮数量不同（返回一个、右侧一或两个）
+            // 时，夹在 HStack 里会被挤偏，overlay 始终钉在顶栏正中。
+            if items.count > 1 {
+                pageCounter
+                    .opacity(counterVisible && !showPanel ? 1 : 0)
+                    .allowsHitTesting(false)
+            }
+        }
         .task(id: index) {
             guard items.count > 1 else { return }
             withAnimation(.easeOut(duration: 0.15)) { counterVisible = true }

@@ -54,6 +54,10 @@ enum Theme {
 
     /// 页面底色
     static let bg = adaptive(dark: 0x000000, light: 0xF4F4F7)
+    /// 页面底色的 UIKit 动态色：给 WKWebView 等原生控件兜底，避免安全区露出黑边
+    static let bgUIColor = UIColor { traits in
+        UIColor(hex: traits.userInterfaceStyle == .dark ? 0x000000 : 0xF4F4F7)
+    }
     /// 卡片 / 列表容器
     static let surface = adaptive(dark: 0x0E0E10, light: 0xFFFFFF)
     /// 抬升表面（菜单、悬浮层）

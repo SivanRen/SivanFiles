@@ -667,12 +667,17 @@ final class LanguagePreference: ObservableObject {
 
     func setOverride(_ language: CodeLanguage?, for url: URL) {
         let key = url.pathExtension.lowercased()
+        var next = overrides
         if let language {
-            overrides[key] = language.rawValue
+            next[key] = language.rawValue
         } else {
-            overrides.removeValue(forKey: key)
+            next.removeValue(forKey: key)
         }
-        UserDefaults.standard.set(overrides, forKey: storageKey)
+        // 整体赋值（而非 overrides[key] = … 的下标改法）确保 @Published 一定触发
+        // objectWillChange，面板和预览页才会跟着刷新。
+        objectWillChange.send()
+        overrides = next
+        UserDefaults.standard.set(next, forKey: storageKey)
     }
 }
 
@@ -734,6 +739,7 @@ struct LanguagePickerView: View {
                         .foregroundStyle(Theme.accent)
                 }
             }
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
