@@ -1,0 +1,16 @@
+Command line invocation:
+    /Applications/Xcode_16.4.app/Contents/Developer/usr/bin/xcodebuild -resolvePackageDependencies -project Sivan.xcodeproj -scheme Sivan
+
+Resolve Package Graph
+
+Fetching from https://github.com/matteo-pacini/libarchive-for-swift.git (cached)
+
+Creating working copy of package ‘libarchive-for-swift’
+
+Checking out 1.0.0 of package ‘libarchive-for-swift’
+
+
+Resolved source packages:
+  SwiftArchive: https://github.com/matteo-pacini/libarchive-for-swift.git @ 1.0.0
+
+resolved source packages: SwiftArchive

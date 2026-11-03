@@ -1,0 +1,4 @@
+Sivan/Core/ThumbnailService.swift:22:75: warning: main actor-isolated class property 'main' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+Sivan/Core/ThumbnailService.swift:22:80: warning: main actor-isolated property 'scale' can not be referenced from a nonisolated context; this is an error in the Swift 6 language mode
+Sivan/Features/Viewer/PagedViewer.swift:414:19: error: missing argument label 'isError:' in call
+Sivan/Features/Viewer/PagedViewer.swift:416:19: error: missing argument label 'isError:' in call
