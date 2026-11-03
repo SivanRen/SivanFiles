@@ -83,7 +83,6 @@ final class AppModel: ObservableObject {
     @Published var toastMessage: ToastMessage?
     @Published var clipboard: ClipboardState?
     @Published var busyText: String?
-    @Published var showImporter = false
     @Published var showAbout = false
 
     let settings = AppSettings.shared
@@ -320,26 +319,52 @@ final class AppModel: ObservableObject {
 
     // MARK: - 导入 / 分享
 
-    func beginImport() { showImporter = true }
+    func beginImport() {
+        DocumentPickerPresenter.present { [weak self] urls in
+            guard let self else { return }
+            // 空数组 = 用户取消，保持安静
+            guard !urls.isEmpty else { return }
+            self.importPicked(urls)
+        }
+    }
 
+    /// 导入用户从系统「文件」选择器挑的文件。
+    /// 选择器用的是 `asCopy: true`，拿到的已经是本 App tmp 里的本地副本，
+    /// 这里只负责搬进当前目录，并在后台线程做，避免大文件把界面卡成「没反应」。
     func importPicked(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
         let target = active.url
-        var count = 0
-        var firstError: String?
-        for url in urls {
-            do {
-                try IngestService.ingest(url, into: target)
-                count += 1
-            } catch {
-                if firstError == nil { firstError = error.localizedDescription }
+        busyText = "正在导入…"
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            var count = 0
+            var firstError: String?
+            var failedNames: [String] = []
+
+            for url in urls {
+                do {
+                    try IngestService.ingest(url, into: target)
+                    count += 1
+                } catch {
+                    failedNames.append(url.lastPathComponent)
+                    if firstError == nil { firstError = error.localizedDescription }
+                }
+                // 系统为本次导入放在 tmp 的副本，搬完即清
+                IngestService.cleanUpTemporaryCopy(url)
             }
-        }
-        reloadAll()
-        if count > 0 {
-            toast("已导入 \(count) 项")
-        } else {
-            toast("导入失败：\(firstError ?? "来源不可访问")", isError: true)
+
+            DispatchQueue.main.async {
+                self.busyText = nil
+                self.reloadAll()
+                if count > 0 && failedNames.isEmpty {
+                    self.toast("已导入 \(count) 项")
+                } else if count > 0 {
+                    self.toast("已导入 \(count) 项，\(failedNames.count) 项失败", isError: true)
+                } else {
+                    let reason = firstError ?? "无法读取所选文件"
+                    self.toast("导入失败：\(reason)", isError: true)
+                }
+            }
         }
     }
 

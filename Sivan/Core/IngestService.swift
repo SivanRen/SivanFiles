@@ -75,6 +75,21 @@ enum IngestService {
         try? FileManager.default.removeItem(at: source)
     }
 
+    /// 文档选择器（`asCopy: true`）为本次导入放在 `tmp` 里的副本，搬完即删。
+    /// 只清理确实位于本 App 临时目录下的路径，绝不误删用户文件。
+    static func cleanUpTemporaryCopy(_ source: URL) {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true).standardizedFileURL
+        let path = source.standardizedFileURL
+        guard path.path.hasPrefix(tmp.path) else { return }
+        // 选择器会把副本放在 tmp 下的子目录里，整个子目录一起清掉
+        let parent = path.deletingLastPathComponent()
+        if parent.path != tmp.path, path.path.hasPrefix(parent.path) {
+            try? FileManager.default.removeItem(at: parent)
+        } else {
+            try? FileManager.default.removeItem(at: path)
+        }
+    }
+
     // MARK: - 内部实现
 
     private static func coordinatedCopy(_ source: URL, to destination: URL) throws {

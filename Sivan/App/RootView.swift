@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct RootView: View {
 
@@ -33,18 +32,6 @@ struct RootView: View {
             PagedViewer(request: request)
                 .environmentObject(app)
                 .preferredColorScheme(.dark)
-        }
-        .fileImporter(
-            isPresented: $app.showImporter,
-            allowedContentTypes: [UTType.item],
-            allowsMultipleSelection: true
-        ) { result in
-            switch result {
-            case .success(let urls):
-                app.importPicked(urls)
-            case .failure(let error):
-                app.toast(error.localizedDescription, isError: true)
-            }
         }
     }
 
