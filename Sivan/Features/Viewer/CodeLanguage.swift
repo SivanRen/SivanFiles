@@ -10,6 +10,8 @@ enum TokenStyle {
     case comment
     case tag
     case attribute
+    /// 对象键名（JSON / plist / 配置里的 key）
+    case key
     case meta
 }
 

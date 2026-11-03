@@ -111,7 +111,8 @@ struct WebPage: View {
             Button("取消", role: .cancel) {}
         }
         .onChange(of: search.isActive) { _, active in
-            // 搜索的是源码文本：开着网页时点搜索，自动切到源码模式
+            // 搜索搜的是源码文本：在网页模式下点搜索，自动切到源码
+            guard isActive else { return }
             if active, !showSource {
                 autoSwitched = true
                 switchTo(true)
@@ -119,6 +120,12 @@ struct WebPage: View {
                 autoSwitched = false
                 switchTo(false)
             }
+        }
+        .onAppear {
+            // 先开了搜索再滑到这一页：直接进源码模式
+            guard isActive, search.isActive, !showSource else { return }
+            autoSwitched = true
+            switchTo(true)
         }
     }
 
