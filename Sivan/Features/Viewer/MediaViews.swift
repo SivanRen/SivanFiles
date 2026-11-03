@@ -13,12 +13,12 @@ struct VideoPage: View {
 
     var body: some View {
         ZStack {
-            Color.black
+            Theme.bg
             if let player {
                 VideoPlayer(player: player)
                     .ignoresSafeArea()
             } else {
-                ProgressView().tint(.white)
+                ProgressView().tint(Theme.textSecondary)
             }
         }
         .onAppear {
@@ -180,7 +180,7 @@ struct AudioPage: View {
                         Circle().fill(Theme.text).frame(width: 64, height: 64)
                         Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(Theme.inverse)
                             .offset(x: model.isPlaying ? 0 : 2)
                     }
                 }

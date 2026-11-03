@@ -49,7 +49,6 @@ enum AppSheet: Identifiable {
     case share([URL])
     case settings
     case zip(FileItem)
-    case trash
     case storage
 
     var id: String {
@@ -59,10 +58,15 @@ enum AppSheet: Identifiable {
         case .share(let urls): return "share:" + urls.map { $0.path }.joined(separator: "|")
         case .settings: return "settings"
         case .zip(let item): return "zip:\(item.url.path)"
-        case .trash: return "trash"
         case .storage: return "storage"
         }
     }
+}
+
+/// 顶层页面：文件浏览 / 最近删除（独立分页，不用弹窗）
+enum AppPage: Equatable {
+    case browser
+    case trash
 }
 
 struct ToastMessage: Identifiable, Equatable {
@@ -78,6 +82,7 @@ final class AppModel: ObservableObject {
     @Published var tabs: [BrowserModel] = []
     @Published var activeIndex: Int = 0
 
+    @Published var page: AppPage = .browser
     @Published var preview: PreviewRequest?
     @Published var sheet: AppSheet?
     @Published var toastMessage: ToastMessage?
@@ -148,6 +153,17 @@ final class AppModel: ObservableObject {
         let files = urls.map { FileItem(url: $0) }.filter { !$0.isDirectory }
         guard !files.isEmpty else { return }
         preview = PreviewRequest(items: files, index: min(max(index, 0), files.count - 1))
+    }
+
+    // MARK: - 页面切换
+
+    // 过渡动画交给 RootView 的 .animation(value:) 处理，模型层只改状态
+    func openTrash() {
+        page = .trash
+    }
+
+    func closeTrash() {
+        page = .browser
     }
 
     // MARK: - 标签页
@@ -248,12 +264,12 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func extract(_ item: FileItem) {
+    func extract(_ item: FileItem, to directory: URL? = nil) {
         guard FileKind.canExtract(item.url) else {
             toast("「\(item.url.pathExtension)」暂不支持解压", isError: true)
             return
         }
-        let target = active.url
+        let target = directory ?? active.url
         background("正在解压…") {
             let folder = try FileStore.shared.extract(item.url, to: target)
             return "已解压到「\(folder.lastPathComponent)」"
@@ -319,21 +335,22 @@ final class AppModel: ObservableObject {
 
     // MARK: - 导入 / 分享
 
-    func beginImport() {
+    func beginImport(into directory: URL? = nil) {
+        let target = directory ?? active.url
         DocumentPickerPresenter.present { [weak self] urls in
             guard let self else { return }
             // 空数组 = 用户取消，保持安静
             guard !urls.isEmpty else { return }
-            self.importPicked(urls)
+            self.importPicked(urls, into: target)
         }
     }
 
     /// 导入用户从系统「文件」选择器挑的文件。
     /// 选择器用的是 `asCopy: true`，拿到的已经是本 App tmp 里的本地副本，
     /// 这里只负责搬进当前目录，并在后台线程做，避免大文件把界面卡成「没反应」。
-    func importPicked(_ urls: [URL]) {
+    func importPicked(_ urls: [URL], into directory: URL? = nil) {
         guard !urls.isEmpty else { return }
-        let target = active.url
+        let target = directory ?? active.url
         busyText = "正在导入…"
 
         DispatchQueue.global(qos: .userInitiated).async {

@@ -14,6 +14,30 @@ struct SettingsView: View {
 
             ScrollView {
                 VStack(spacing: 16) {
+                    PanelGroup("外观") {
+                        PanelRow(title: "主题", subtitle: "切换后所有页面（含预览、回收站）立刻换色") {
+                            Menu {
+                                ForEach(AppAppearance.allCases) { mode in
+                                    Button {
+                                        settings.appearance = mode
+                                    } label: {
+                                        Label(mode.title, systemImage: mode.symbol)
+                                    }
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Image(systemName: settings.appearance.symbol)
+                                        .font(.system(size: 11, weight: .medium))
+                                    Text(settings.appearance.title)
+                                        .font(.system(size: 12.5))
+                                }
+                                .foregroundStyle(Theme.accent)
+                            }
+                        }
+                        Hairline().padding(.leading, 14)
+                        PanelRow(title: "跟随系统", subtitle: "选“跟随系统”时，打开 iOS 深色模式会自动变暗")
+                    }
+
                     PanelGroup("浏览") {
                         PanelRow(title: "显示隐藏文件", subtitle: "以 . 开头的文件与文件夹") {
                             Toggle("", isOn: $settings.showHidden)

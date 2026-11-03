@@ -139,7 +139,7 @@ struct FileGridCell: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(isSelected ? Theme.accentSoft : Color.white.opacity(0.025))
+                .fill(isSelected ? Theme.accentSoft : Theme.veil(0.025))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)

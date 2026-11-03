@@ -26,29 +26,55 @@ extension UIColor {
     }
 }
 
-// MARK: - 全局暗黑主题
+// MARK: - 自适应主题
 
+/// 全部颜色都是动态色：跟随系统外观，也跟随应用内「外观」设置。
+/// 因为用的是 `UIColor` 的动态 provider，切换外观时整棵视图树会立刻重新取色，
+/// 不需要重建窗口，也不会有一次「白闪」。
 enum Theme {
-    /// 页面底色（纯黑，OLED 更省电也更“Filza”）
-    static let bg = Color(hex: 0x000000)
+
+    /// 深色 / 浅色两套取值
+    private static func adaptive(dark: UInt32, light: UInt32) -> Color {
+        Color(uiColor: UIColor { traits in
+            UIColor(hex: traits.userInterfaceStyle == .dark ? dark : light)
+        })
+    }
+
+    /// 叠在背景上的浅色/深色蒙层：深色下用白，浅色下用黑
+    static func veil(dark: CGFloat, light: CGFloat) -> Color {
+        Color(uiColor: UIColor { traits in
+            let isDark = traits.userInterfaceStyle == .dark
+            return UIColor(white: isDark ? 1 : 0, alpha: isDark ? dark : light)
+        })
+    }
+
+    static func veil(_ alpha: CGFloat) -> Color {
+        veil(dark: alpha, light: alpha)
+    }
+
+    /// 页面底色
+    static let bg = adaptive(dark: 0x000000, light: 0xF4F4F7)
     /// 卡片 / 列表容器
-    static let surface = Color(hex: 0x0E0E10)
+    static let surface = adaptive(dark: 0x0E0E10, light: 0xFFFFFF)
     /// 抬升表面（菜单、悬浮层）
-    static let elevated = Color(hex: 0x18181C)
+    static let elevated = adaptive(dark: 0x18181C, light: 0xFFFFFF)
     /// 再高一层（选中态）
-    static let elevatedHi = Color(hex: 0x232329)
+    static let elevatedHi = adaptive(dark: 0x232329, light: 0xE7E7EC)
 
-    static let stroke = Color.white.opacity(0.07)
-    static let strokeStrong = Color.white.opacity(0.16)
+    static let stroke = veil(dark: 0.07, light: 0.10)
+    static let strokeStrong = veil(dark: 0.16, light: 0.20)
 
-    static let text = Color(hex: 0xF3F3F6)
-    static let textSecondary = Color(hex: 0x9B9BA4)
-    static let textTertiary = Color(hex: 0x61616B)
+    static let text = adaptive(dark: 0xF3F3F6, light: 0x111114)
+    static let textSecondary = adaptive(dark: 0x9B9BA4, light: 0x5C5C66)
+    static let textTertiary = adaptive(dark: 0x61616B, light: 0x8D8D97)
 
-    static let accent = Color(hex: 0x4D8DFF)
-    static let accentSoft = Color(hex: 0x4D8DFF, opacity: 0.16)
-    static let danger = Color(hex: 0xFF4D4F)
-    static let success = Color(hex: 0x35C759)
+    /// 填充色按钮上的文字：深色下用黑（按钮是浅色），浅色下用白（按钮是深色）
+    static let inverse = adaptive(dark: 0x000000, light: 0xFFFFFF)
+
+    static let accent = adaptive(dark: 0x4D8DFF, light: 0x0A6CFF)
+    static let accentSoft = adaptive(dark: 0x1C2B44, light: 0xE1EBFF)
+    static let danger = adaptive(dark: 0xFF4D4F, light: 0xD9292E)
+    static let success = adaptive(dark: 0x35C759, light: 0x118A44)
 
     static let radius: CGFloat = 14
     static let radiusLarge: CGFloat = 22
@@ -119,7 +145,7 @@ struct IconTile: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: radius, style: .continuous)
-                .fill(image == nil ? tint.opacity(0.15) : Color.white.opacity(0.04))
+                .fill(image == nil ? tint.opacity(0.15) : Theme.veil(0.04))
             if let image {
                 Image(uiImage: image)
                     .resizable()
@@ -150,9 +176,9 @@ struct Chip: View {
             .lineLimit(1)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .foregroundStyle(selected ? Color.black : Theme.textSecondary)
+            .foregroundStyle(selected ? Theme.inverse : Theme.textSecondary)
             .background(
-                Capsule().fill(selected ? Theme.text : Color.white.opacity(0.06))
+                Capsule().fill(selected ? Theme.text : Theme.veil(0.06))
             )
     }
 }

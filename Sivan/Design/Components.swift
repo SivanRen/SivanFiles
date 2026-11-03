@@ -22,11 +22,11 @@ struct SheetHeader: View {
                 Button(action: onConfirm) {
                     Text(confirmTitle)
                         .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(confirmDisabled ? Theme.textTertiary : .black)
+                        .foregroundStyle(confirmDisabled ? Theme.textTertiary : Theme.inverse)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 6)
                         .background(
-                            Capsule().fill(confirmDisabled ? Color.white.opacity(0.08) : Theme.text)
+                            Capsule().fill(confirmDisabled ? Theme.veil(0.08) : Theme.text)
                         )
                 }
                 .buttonStyle(.plain)
@@ -40,7 +40,7 @@ struct SheetHeader: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(width: 26, height: 26)
-                    .background(Circle().fill(Color.white.opacity(0.06)))
+                    .background(Circle().fill(Theme.veil(0.06)))
             }
             .buttonStyle(.plain)
         }

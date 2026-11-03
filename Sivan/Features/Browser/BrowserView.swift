@@ -163,7 +163,7 @@ struct BrowserView: View {
                     Label(model.isEditing ? "退出选择" : "选择", systemImage: "checkmark.circle")
                 }
                 Button {
-                    app.sheet = .trash
+                    app.openTrash()
                 } label: {
                     Label("最近删除", systemImage: "trash")
                 }
@@ -183,7 +183,7 @@ struct BrowserView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .frame(width: 30, height: 30)
                 .foregroundStyle(Theme.textSecondary)
-                .background(Circle().fill(Color.white.opacity(0.05)))
+                .background(Circle().fill(Theme.veil(0.05)))
         }
     }
 
@@ -415,7 +415,7 @@ struct BreadcrumbBar: View {
                             .padding(.horizontal, 8)
                             .padding(.vertical, 5)
                             .background(
-                                Capsule().fill(isCurrent ? Color.white.opacity(0.08) : Color.clear)
+                                Capsule().fill(isCurrent ? Theme.veil(0.08) : Color.clear)
                             )
                     }
                     .buttonStyle(.plain)

@@ -6,6 +6,8 @@ struct PreviewPage: View {
 
     let item: FileItem
     let isActive: Bool
+    /// 内容顶部留白：由预览页按安全区算出，避开悬浮的返回 / 省略号按钮
+    var topInset: CGFloat = 104
 
     var body: some View {
         Group {
@@ -19,17 +21,17 @@ struct PreviewPage: View {
             case .audio:
                 AudioPage(url: item.url, isActive: isActive)
             case .text, .code:
-                CodePage(url: item.url)
+                CodePage(url: item.url, topInset: topInset)
             case .html:
-                WebPage(url: item.url)
+                WebPage(url: item.url, topInset: topInset)
             case .archive:
-                ArchivePage(item: item)
+                ArchivePage(item: item, topInset: topInset)
             case .pdf, .office, .unknown, .folder:
                 QuickLookPage(url: item.url)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black)
+        .background(Theme.bg)
     }
 }
 
@@ -38,6 +40,7 @@ struct PreviewPage: View {
 struct ArchivePage: View {
 
     let item: FileItem
+    var topInset: CGFloat = 104
 
     @EnvironmentObject private var app: AppModel
     @State private var entries: [ZipEntry] = []
@@ -51,7 +54,7 @@ struct ArchivePage: View {
 
             if isLoading {
                 Spacer()
-                ProgressView().tint(.white)
+                ProgressView().tint(Theme.textSecondary)
                 Spacer()
             } else if let errorText {
                 Spacer()
@@ -109,7 +112,7 @@ struct ArchivePage: View {
                 } label: {
                     Text("解压")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(Theme.inverse)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(Capsule().fill(Theme.text))
@@ -118,7 +121,7 @@ struct ArchivePage: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.top, 104)
+        .padding(.top, topInset)
         .padding(.bottom, 12)
     }
 

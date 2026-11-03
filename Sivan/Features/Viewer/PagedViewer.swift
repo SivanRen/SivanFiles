@@ -1,22 +1,27 @@
 import SwiftUI
 
-/// 分页预览：左右滑动浏览同目录下的所有文件，底部有缩略图胶片条
+/// 分页预览：点开文件后进入，左右滑动浏览同目录的文件。
+/// 顶栏只保留「返回」与「⋯」，底栏不再显示文件列表。
+/// 「⋯」打开快捷栏：文件属性 + 快捷操作（导入、图库、分享…）。
 struct PagedViewer: View {
-
-    let request: PreviewRequest
 
     @EnvironmentObject private var app: AppModel
     @Environment(\.dismiss) private var dismiss
 
+    @State private var items: [FileItem]
     @State private var index: Int
-    @State private var showFilmstrip = true
+    @State private var showPanel = false
+    @State private var toastMessage: ToastMessage?
+
+    @State private var shareItems: [Any] = []
+    @State private var showsShare = false
+    @State private var infoItem: FileItem?
+    @State private var confirmDelete = false
 
     init(request: PreviewRequest) {
-        self.request = request
+        _items = State(initialValue: request.items)
         _index = State(initialValue: min(max(request.index, 0), max(request.items.count - 1, 0)))
     }
-
-    private var items: [FileItem] { request.items }
 
     private var current: FileItem? {
         guard items.indices.contains(index) else { return nil }
@@ -24,197 +29,182 @@ struct PagedViewer: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        // 外层 GeometryReader 本身不忽略安全区，才能拿到真实的安全区高度
+        GeometryReader { proxy in
+            ZStack {
+                Theme.bg.ignoresSafeArea()
 
-            TabView(selection: $index) {
-                ForEach(Array(items.enumerated()), id: \.offset) { offset, item in
-                    PreviewPage(item: item, isActive: offset == index)
+                TabView(selection: $index) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { offset, item in
+                        PreviewPage(
+                            item: item,
+                            isActive: offset == index,
+                            topInset: proxy.safeAreaInsets.top + 46
+                        )
                         .tag(offset)
+                    }
                 }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .ignoresSafeArea()
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                topBar
-                Spacer(minLength: 0)
-                if showFilmstrip, items.count > 1 {
-                    filmstrip
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer(minLength: 0)
+                    if items.count > 1 {
+                        pageCounter
+                            .padding(.bottom, 14)
+                    }
                 }
+
+                if showPanel, let current {
+                    panelLayer(for: current)
+                }
+
+                toastLayer
             }
         }
-        .statusBarHidden()
+        .background(Theme.bg)
+        .sheet(isPresented: $showsShare) {
+            ShareSheet(items: shareItems)
+        }
+        .sheet(item: $infoItem) { item in
+            InfoSheet(item: item)
+                .environmentObject(app)
+        }
+        .confirmationDialog("移到“最近删除”？", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("移到最近删除", role: .destructive) { deleteCurrent() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text(current?.name ?? "")
+        }
     }
 
-    // MARK: - 顶栏
+    // MARK: - 顶栏：左上返回，右上省略号
 
     private var topBar: some View {
-        HStack(spacing: 12) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(Theme.text)
-                    .frame(width: 30, height: 30)
-                    .background(Circle().fill(.ultraThinMaterial))
+        HStack(spacing: 10) {
+            circleButton("chevron.left") { dismiss() }
+
+            Spacer(minLength: 8)
+
+            circleButton("ellipsis") {
+                withAnimation(.easeOut(duration: 0.2)) { showPanel = true }
             }
-            .buttonStyle(PressableStyle())
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(current?.name ?? "")
-                    .font(.system(size: 13.5, weight: .semibold))
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(subtitle)
-                    .font(.system(size: 10.5, design: .monospaced))
-                    .foregroundStyle(Theme.textSecondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 4)
-
-            actionsMenu
         }
         .padding(.horizontal, 16)
         .padding(.top, 6)
-        .padding(.bottom, 30)
-        .background(
-            LinearGradient(
-                colors: [Color.black.opacity(0.92), Color.black.opacity(0)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .top)
-        )
+        .padding(.bottom, 8)
     }
 
-    private var subtitle: String {
-        guard let current else { return "" }
-        let type = current.isDirectory ? "文件夹" : current.extLabel
-        return "\(index + 1)/\(items.count)  ·  \(type)  ·  \(current.isDirectory ? "" : Fmt.size(current.size))"
-    }
-
-    private var actionsMenu: some View {
-        Menu {
-            if let current {
-                if !current.isDirectory {
-                    Button {
-                        app.share([current.url])
-                    } label: {
-                        Label("分享 / 发送到其他应用", systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        PasteboardService.copyFiles([current.url])
-                        app.toast("已复制文件")
-                    } label: {
-                        Label("复制文件", systemImage: "doc.on.doc")
-                    }
-                    if FileKind.canExtract(current.url) {
-                        Button {
-                            app.extract(current)
-                        } label: {
-                            Label("解压到当前目录", systemImage: "arrow.down.doc")
-                        }
-                    }
-                    if current.kind == .text || current.kind == .code {
-                        Button {
-                            if let text = FileStore.shared.readText(current.url) {
-                                PasteboardService.copyText(text)
-                                app.toast("全文已复制")
-                            }
-                        } label: {
-                            Label("复制全部文本", systemImage: "text.alignleft")
-                        }
-                    }
-                }
-                Button {
-                    app.sheet = .info(current)
-                } label: {
-                    Label("显示简介", systemImage: "info.circle")
-                }
-            }
-
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) { showFilmstrip.toggle() }
-            } label: {
-                Label(showFilmstrip ? "隐藏缩略图条" : "显示缩略图条", systemImage: "rectangle.bottomthird.inset.filled")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
+    private func circleButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
                 .font(.system(size: 13, weight: .bold))
                 .foregroundStyle(Theme.text)
-                .frame(width: 30, height: 30)
+                .frame(width: 34, height: 34)
                 .background(Circle().fill(.ultraThinMaterial))
+                .overlay(Circle().strokeBorder(Theme.stroke, lineWidth: 1))
+        }
+        .buttonStyle(PressableStyle())
+    }
+
+    /// 轻量页码（不是文件列表，仅提示当前是第几个）
+    private var pageCounter: some View {
+        Text("\(index + 1) / \(items.count)")
+            .font(.system(size: 10.5, weight: .medium, design: .monospaced))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(.ultraThinMaterial))
+            .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
+            .opacity(showPanel ? 0 : 1)
+    }
+
+    // MARK: - 快捷栏
+
+    private func panelLayer(for item: FileItem) -> some View {
+        ZStack(alignment: .bottom) {
+            Color.black.opacity(0.32)
+                .ignoresSafeArea()
+                .onTapGesture { closePanel() }
+
+            ViewerActionPanel(
+                item: item,
+                onClose: { closePanel() },
+                onShare: {
+                    shareItems = [item.url]
+                    closePanel()
+                    showsShare = true
+                },
+                onImport: {
+                    closePanel()
+                    app.beginImport(into: item.url.deletingLastPathComponent())
+                },
+                onExtract: {
+                    closePanel()
+                    app.extract(item, to: item.url.deletingLastPathComponent())
+                },
+                onDelete: {
+                    closePanel()
+                    confirmDelete = true
+                },
+                onRenamed: { newURL in
+                    if items.indices.contains(index) {
+                        items[index] = FileItem(url: newURL)
+                    }
+                },
+                onShowInfo: {
+                    closePanel()
+                    infoItem = item
+                },
+                onNotify: { text, isError in
+                    notify(text, isError: isError)
+                }
+            )
+            .environmentObject(app)
+            .transition(.move(edge: .bottom))
         }
     }
 
-    // MARK: - 胶片条
+    private func closePanel() {
+        withAnimation(.easeOut(duration: 0.2)) { showPanel = false }
+    }
 
-    private var filmstrip: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 5) {
-                ForEach(0..<min(items.count, 14), id: \.self) { dot in
-                    Circle()
-                        .fill(dot == dotIndex ? Theme.text : Color.white.opacity(0.28))
-                        .frame(width: dot == dotIndex ? 5.5 : 4, height: dot == dotIndex ? 5.5 : 4)
-                }
-                if items.count > 14 {
-                    Text("…")
-                        .font(.system(size: 9))
-                        .foregroundStyle(Theme.textTertiary)
-                }
-            }
+    // MARK: - 删除
 
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 7) {
-                        ForEach(Array(items.enumerated()), id: \.offset) { offset, item in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.18)) { index = offset }
-                            } label: {
-                                filmCell(item: item, active: offset == index)
-                            }
-                            .buttonStyle(.plain)
-                            .id(offset)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 2)
-                }
-                .onChange(of: index) { _, newValue in
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(newValue, anchor: .center)
-                    }
-                }
-            }
-            .frame(height: 50)
+    private func deleteCurrent() {
+        guard let current else { return }
+        let removedURL = current.url
+        app.moveToTrash([removedURL])
+        items.removeAll { $0.url == removedURL }
+        if items.isEmpty {
+            dismiss()
+            return
         }
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .background(
-            LinearGradient(
-                colors: [Color.black.opacity(0), Color.black.opacity(0.92)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea(edges: .bottom)
-        )
+        index = min(index, items.count - 1)
     }
 
-    private var dotIndex: Int {
-        if items.count <= 14 { return index }
-        return Int(round(Double(index) / Double(max(items.count - 1, 1)) * 13))
+    // MARK: - 轻提示（预览页浮在最上层，用自带提示条）
+
+    @ViewBuilder
+    private var toastLayer: some View {
+        if let toast = toastMessage {
+            VStack {
+                ToastBanner(toast: toast)
+                    .padding(.top, 54)
+                Spacer()
+            }
+            .transition(.move(edge: .top).combined(with: .opacity))
+            .task(id: toast.id) {
+                try? await Task.sleep(nanoseconds: 2_200_000_000)
+                if toastMessage?.id == toast.id { toastMessage = nil }
+            }
+        }
     }
 
-    private func filmCell(item: FileItem, active: Bool) -> some View {
-        FileThumbnail(item: item, size: 40)
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(active ? Theme.text : Color.white.opacity(0.12), lineWidth: active ? 1.6 : 1)
-            )
-            .opacity(active ? 1 : 0.62)
+    private func notify(_ text: String, isError: Bool = false) {
+        withAnimation(.easeOut(duration: 0.16)) {
+            toastMessage = ToastMessage(text: text, isError: isError)
+        }
     }
 }

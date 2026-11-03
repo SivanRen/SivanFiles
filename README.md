@@ -1,6 +1,7 @@
 # Sivan · iOS 文件管理器（类 Filza）
 
-一个纯 SwiftUI 编写的 iOS 文件管理器，深度暗黑主题，Bundle ID `com.sivan.files`，App 名 **Sivan**。
+一个纯 SwiftUI 编写的 iOS 文件管理器，Bundle ID `com.sivan.files`，App 名 **Sivan**。
+界面自带深 / 浅两套配色，默认跟随 iOS 深色模式。
 
 > 目标系统 iOS 26（部署目标 iOS 17.0，兼容更广）。自签安装，无需开发者账号。
 
@@ -17,7 +18,10 @@
 - **多页面标签栏**：像 Filza 一样同时开多个浏览会话，顶部胶囊切换，可关闭单页
 
 ### 2. 多格式预览 + 分页浏览
-- **分页预览器**：左右滑动即可在同目录所有文件间翻阅，底部缩略图胶片条（点击跳转）、页码点阵、当前页序号
+- **分页预览器**：左右滑动即可在同目录所有文件间翻阅，底部只有一枚极简页码，不再堆文件列表
+- **预览页顶栏**：左上「返回」回文件夹，右上「⋯」打开快捷栏
+- **快捷栏**：文件属性（名称/大小/类型/时间/位置）+ 快捷操作（分享、从其他 App 导入、复制、复制全文、解压、重命名、复制路径、删除）
+- **图库**：识别到图片 / 动图 / 视频时，快捷栏多一个「存入图库」，直接写进系统相册
 - PDF → 系统 QuickLook
 - Word / Excel / PPT / RTF / Pages 等 → 系统 QuickLook
 - 图片（jpg/png/heic/webp/tiff…）→ 支持双指缩放、双击放大、拖动
@@ -31,6 +35,7 @@
 ### 3. 文件操作
 - 新建文件夹、新建文本文件、重命名、创建副本
 - 删除进「最近删除」（可恢复 / 可清空），回收站内可直接永久删除
+- **回收站是独立分页**：从文件页滑入的整页列表，带返回键，不是弹窗
 - 复制 / 剪切 / 粘贴（应用内剪贴板 + 系统剪贴板双向打通，可跨 App 粘贴文件）
 - 压缩为 zip（保留目录结构，唯一压缩格式）
 - 解压：**zip / rar / 7z / tar / gz / tgz / bz2 / xz / zst / lz / lzma / cab / iso** 等
@@ -42,9 +47,11 @@
 - 应用开启 `UIFileSharingEnabled`，在系统「文件」App 的「我的 iPhone → Sivan」里可直接拖拽
 - 存储空间统计页（应用占用 / 回收站 / 设备可用）
 
-### 5. 主题
-- 全局强制暗黑：`Info.plist` 里 `UIUserInterfaceStyle = Dark` + 纯黑底 `#000000`
-- 统一的表面层级（#0E0E10 / #18181C / #232329）、1px 描边、胶囊按钮、圆角卡片
+### 5. 主题（深 / 浅色自适应）
+- `Theme` 里所有颜色都是动态色：深色纯黑 `#000000`、浅色 `#F4F4F7`，切换外观时整棵树立刻重新取色
+- 设置 → 外观：**跟随系统 / 浅色 / 深色**；选择「跟随系统」时，打开 iOS 深色模式 App 自动变暗
+- 统一的表面层级、1px 描边、胶囊按钮、圆角卡片；代码高亮的配色也分深浅两套
+- 启动屏背景色随深浅色切换（Asset 里带 dark 变体）
 - 图标：黑色 Win11 文件夹风格（1024×1024，无 alpha）
 
 ---
@@ -143,7 +150,7 @@ chmod +x build-ipa.sh
 Sivan/
 ├─ project.yml                     # XcodeGen 工程描述（CI 用它生成工程）
 ├─ Sivan.xcodeproj/                # 现成工程（Xcode 16+ 可直接打开）
-├─ Config/Info.plist               # Bundle 配置：显示名/暗黑模式/文件共享/Open In
+├─ Config/Info.plist               # Bundle 配置：显示名/文件共享/Open In/相册权限
 ├─ build-ipa.sh                    # macOS 本地一键打包
 ├─ .gitattributes                  # 强制 LF（否则 Windows 推送后 shell 脚本会在 macOS 报 bad interpreter）
 ├─ .github/workflows/build-ipa.yml # 云端免签名打包出 ipa（失败时同时上传日志）
@@ -156,8 +163,9 @@ Sivan/
    │  └─ Zip/                      # 纯 Swift zip 读写（CRC32 / Inflate / 解析 / 打包）
    ├─ Features/
    │  ├─ Browser/                  # 浏览器：列表、网格、面包屑、标签栏、多选条
-   │  ├─ Viewer/                   # 分页预览器与各类查看器
-   │  └─ Sheets/                   # 简介、新建/重命名、设置、分享、压缩包、回收站、存储
+   │  ├─ Viewer/                   # 分页预览器、快捷栏、各类查看器
+   │  ├─ Trash/                    # 最近删除（独立分页）
+   │  └─ Sheets/                   # 简介、新建/重命名、设置、分享、压缩包、存储
    └─ Resources/Assets.xcassets/   # AppIcon（黑色 Win11 文件夹）、AccentColor
 ```
 

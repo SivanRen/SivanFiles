@@ -44,7 +44,7 @@ struct TabStrip: View {
                         .font(.system(size: 8, weight: .bold))
                         .foregroundStyle(Theme.textTertiary)
                         .frame(width: 14, height: 14)
-                        .background(Circle().fill(Color.white.opacity(0.06)))
+                        .background(Circle().fill(Theme.veil(0.06)))
                 }
                 .buttonStyle(.plain)
             }
@@ -52,7 +52,7 @@ struct TabStrip: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(
-            Capsule().fill(isActive ? Theme.elevatedHi : Color.white.opacity(0.03))
+            Capsule().fill(isActive ? Theme.elevatedHi : Theme.veil(0.03))
         )
         .overlay(
             Capsule().strokeBorder(isActive ? Theme.strokeStrong : Theme.stroke, lineWidth: 1)
@@ -75,7 +75,7 @@ struct TabStrip: View {
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(Theme.textSecondary)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.white.opacity(0.04)))
+                .background(Circle().fill(Theme.veil(0.04)))
                 .overlay(Circle().strokeBorder(Theme.stroke, lineWidth: 1))
         }
         .buttonStyle(.plain)

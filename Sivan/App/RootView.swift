@@ -8,11 +8,21 @@ struct RootView: View {
         ZStack(alignment: .top) {
             Theme.bg.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                TabStrip()
-                BrowserView(model: app.active)
-                    .id(app.active.id)
+            // 顶层页面：文件浏览 ⇄ 最近删除（独立分页，滑动切换）
+            ZStack(alignment: .top) {
+                if app.page == .browser {
+                    VStack(spacing: 0) {
+                        TabStrip()
+                        BrowserView(model: app.active)
+                            .id(app.active.id)
+                    }
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                } else {
+                    TrashPage()
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
+            .animation(.easeInOut(duration: 0.22), value: app.page)
 
             if let busy = app.busyText {
                 BusyOverlay(text: busy)
@@ -26,12 +36,10 @@ struct RootView: View {
         .sheet(item: $app.sheet) { sheet in
             SheetRouter(sheet: sheet)
                 .environmentObject(app)
-                .preferredColorScheme(.dark)
         }
         .fullScreenCover(item: $app.preview) { request in
             PagedViewer(request: request)
                 .environmentObject(app)
-                .preferredColorScheme(.dark)
         }
     }
 
@@ -70,7 +78,7 @@ struct ToastBanner: View {
             Capsule().fill(Theme.elevated)
         )
         .overlay(Capsule().strokeBorder(Theme.strokeStrong, lineWidth: 1))
-        .shadow(color: .black.opacity(0.5), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
         .padding(.horizontal, 24)
     }
 }
@@ -82,7 +90,7 @@ struct BusyOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.45).ignoresSafeArea()
+            Color.black.opacity(0.35).ignoresSafeArea()
             VStack(spacing: 14) {
                 ProgressView()
                     .progressViewStyle(.circular)
@@ -123,8 +131,6 @@ struct SheetRouter: View {
                 SettingsView()
             case .zip(let item):
                 ZipBrowserView(item: item)
-            case .trash:
-                TrashView()
             case .storage:
                 StorageView()
             }

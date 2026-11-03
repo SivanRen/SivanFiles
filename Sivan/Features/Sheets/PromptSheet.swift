@@ -38,7 +38,7 @@ struct PromptSheet: View {
                 .padding(.vertical, 11)
                 .background(
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Theme.veil(0.06))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -56,7 +56,7 @@ struct PromptSheet: View {
                         .foregroundStyle(Theme.textSecondary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(Color.white.opacity(0.06)))
+                        .background(Capsule().fill(Theme.veil(0.06)))
                 }
                 .buttonStyle(.plain)
 
@@ -65,10 +65,10 @@ struct PromptSheet: View {
                 } label: {
                     Text("确定")
                         .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(trimmed.isEmpty ? Theme.textTertiary : .black)
+                        .foregroundStyle(trimmed.isEmpty ? Theme.textTertiary : Theme.inverse)
                         .padding(.horizontal, 18)
                         .padding(.vertical, 8)
-                        .background(Capsule().fill(trimmed.isEmpty ? Color.white.opacity(0.08) : Theme.text))
+                        .background(Capsule().fill(trimmed.isEmpty ? Theme.veil(0.08) : Theme.text))
                 }
                 .buttonStyle(.plain)
                 .disabled(trimmed.isEmpty)

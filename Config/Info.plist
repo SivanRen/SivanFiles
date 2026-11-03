@@ -28,12 +28,12 @@
 	<string>$(IPHONEOS_DEPLOYMENT_TARGET)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>用于把 Sivan 中的图片或视频存入系统相册（“图库”）。</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIUserInterfaceStyle</key>
-	<string>Dark</string>
-	<key>UIStatusBarStyle</key>
-	<string>UIStatusBarStyleLightContent</string>
+	<!-- 不锁定外观：由「设置 → 外观」决定（跟随系统 / 浅色 / 深色），
+	     因此这里不能写 UIUserInterfaceStyle = Dark，否则系统级深色会覆盖应用内选择。 -->
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<!-- 必须为 false：为 true 时 iOS 会把「来源 App 容器里的原始 URL」直接交给我们，

@@ -26,6 +26,8 @@ struct WebViewRepresentable: UIViewRepresentable {
 struct WebPage: View {
 
     let url: URL
+    var topInset: CGFloat = 104
+
     @State private var showSource = false
 
     var body: some View {
@@ -36,7 +38,7 @@ struct WebPage: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 150)
-            .padding(.top, 96)
+            .padding(.top, topInset)
             .padding(.bottom, 8)
 
             if showSource {

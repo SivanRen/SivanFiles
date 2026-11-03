@@ -1,5 +1,40 @@
 import Foundation
+import SwiftUI
 import Combine
+
+/// 外观：跟随系统 / 强制浅色 / 强制深色
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system
+    case light
+    case dark
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .system: return "跟随系统"
+        case .light: return "浅色"
+        case .dark: return "深色"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .system: return "circle.lefthalf.filled"
+        case .light: return "sun.max"
+        case .dark: return "moon"
+        }
+    }
+
+    /// `nil` 表示不干预，由系统外观决定
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+}
 
 /// 轻量偏好设置（UserDefaults 落盘）
 final class AppSettings: ObservableObject {
@@ -14,6 +49,7 @@ final class AppSettings: ObservableObject {
         static let layout = "sivan.layout"
         static let codeFontSize = "sivan.codeFontSize"
         static let lastPath = "sivan.lastPath"
+        static let appearance = "sivan.appearance"
     }
 
     private let store = UserDefaults.standard
@@ -46,6 +82,10 @@ final class AppSettings: ObservableObject {
         didSet { store.set(lastPath, forKey: Keys.lastPath) }
     }
 
+    @Published var appearance: AppAppearance {
+        didSet { store.set(appearance.rawValue, forKey: Keys.appearance) }
+    }
+
     private init() {
         showHidden = store.bool(forKey: Keys.showHidden)
         foldersFirst = store.object(forKey: Keys.foldersFirst) as? Bool ?? true
@@ -54,5 +94,6 @@ final class AppSettings: ObservableObject {
         layout = LayoutMode(rawValue: store.string(forKey: Keys.layout) ?? "") ?? .list
         codeFontSize = store.object(forKey: Keys.codeFontSize) as? Double ?? 14
         lastPath = store.string(forKey: Keys.lastPath) ?? ""
+        appearance = AppAppearance(rawValue: store.string(forKey: Keys.appearance) ?? "") ?? .system
     }
 }

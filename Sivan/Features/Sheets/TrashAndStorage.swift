@@ -1,110 +1,5 @@
 import SwiftUI
 
-// MARK: - 最近删除
-
-struct TrashView: View {
-
-    @EnvironmentObject private var app: AppModel
-
-    @State private var items: [FileItem] = []
-    @State private var confirmEmpty = false
-
-    var body: some View {
-        VStack(spacing: 0) {
-            SheetHeader(
-                title: "最近删除",
-                confirmTitle: items.isEmpty ? nil : "清空",
-                confirmDisabled: items.isEmpty,
-                onConfirm: { confirmEmpty = true }
-            )
-
-            if items.isEmpty {
-                EmptyHint(symbol: "trash", title: "回收站是空的", subtitle: "删除的文件会先移动到这里，可随时恢复")
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: 1) {
-                        ForEach(items) { item in
-                            row(item)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 30)
-                }
-                .scrollIndicators(.hidden)
-            }
-        }
-        .background(Theme.bg)
-        .onAppear { load() }
-        .confirmationDialog("清空最近删除？", isPresented: $confirmEmpty, titleVisibility: .visible) {
-            Button("清空", role: .destructive) {
-                app.emptyTrash()
-                load()
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("共 \(items.count) 项，操作不可恢复")
-        }
-    }
-
-    private func row(_ item: FileItem) -> some View {
-        HStack(spacing: 12) {
-            FileThumbnail(item: item, size: 38)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.name)
-                    .font(.system(size: 13.5, weight: .medium))
-                    .foregroundStyle(Theme.text)
-                    .lineLimit(1)
-                Text("\(Fmt.size(item.size)) · \(Fmt.shortDate(item.modified))")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(Theme.textTertiary)
-            }
-
-            Spacer(minLength: 4)
-
-            Button {
-                restore(item)
-            } label: {
-                Text("恢复")
-                    .font(.system(size: 11.5, weight: .medium))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(Theme.accentSoft))
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                app.deletePermanently([item.url])
-                load()
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Theme.danger)
-                    .frame(width: 26, height: 26)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-    }
-
-    private func restore(_ item: FileItem) {
-        do {
-            try app.store.move([item.url], to: app.store.root)
-            app.toast("已恢复到主目录")
-            load()
-            app.reloadAll()
-        } catch {
-            app.toast(error.localizedDescription, isError: true)
-        }
-    }
-
-    private func load() {
-        items = app.store.trashItems()
-    }
-}
-
 // MARK: - 存储空间
 
 struct StorageView: View {
@@ -182,7 +77,7 @@ struct StorageView: View {
             GeometryReader { geometry in
                 let ratio = total > 0 ? min(max(Double(used) / Double(total), 0.02), 1) : 0.02
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(Theme.veil(0.08))
                     Capsule()
                         .fill(
                             LinearGradient(

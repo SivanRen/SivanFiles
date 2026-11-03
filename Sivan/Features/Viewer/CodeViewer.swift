@@ -3,13 +3,36 @@ import UIKit
 
 // MARK: - 语法着色
 
-enum SyntaxHighlighter {
+/// 语法着色用色：深色一套、浅色一套，避免浅色模式下代码「白底白字」
+struct SyntaxPalette {
 
-    private static let keywordColor = UIColor(hex: 0xC792EA)
-    private static let stringColor = UIColor(hex: 0x9CDc7E)
-    private static let numberColor = UIColor(hex: 0xF2A45C)
-    private static let commentColor = UIColor(hex: 0x6B7280)
-    private static let plainColor = UIColor(hex: 0xD6D9E0)
+    let keyword: UIColor
+    let string: UIColor
+    let number: UIColor
+    let comment: UIColor
+    let plain: UIColor
+
+    static func forScheme(_ scheme: ColorScheme) -> SyntaxPalette {
+        if scheme == .light {
+            return SyntaxPalette(
+                keyword: UIColor(hex: 0x8B3FB8),
+                string: UIColor(hex: 0x1B7A3E),
+                number: UIColor(hex: 0xA85500),
+                comment: UIColor(hex: 0x8A8F99),
+                plain: UIColor(hex: 0x23232B)
+            )
+        }
+        return SyntaxPalette(
+            keyword: UIColor(hex: 0xC792EA),
+            string: UIColor(hex: 0x9CDC7E),
+            number: UIColor(hex: 0xF2A45C),
+            comment: UIColor(hex: 0x6B7280),
+            plain: UIColor(hex: 0xD6D9E0)
+        )
+    }
+}
+
+enum SyntaxHighlighter {
 
     private static let keywords = [
         "func", "let", "var", "if", "else", "guard", "for", "while", "repeat", "return", "switch", "case",
@@ -23,7 +46,14 @@ enum SyntaxHighlighter {
         "package", "namespace", "using", "template", "typename", "virtual", "inline", "extern", "volatile"
     ]
 
-    static func make(_ code: String, ext: String, fontSize: CGFloat, topInset: CGFloat) -> NSAttributedString {
+    static func make(
+        _ code: String,
+        ext: String,
+        fontSize: CGFloat,
+        topInset: CGFloat,
+        scheme: ColorScheme
+    ) -> NSAttributedString {
+        let palette = SyntaxPalette.forScheme(scheme)
         let font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineSpacing = 2
@@ -33,7 +63,7 @@ enum SyntaxHighlighter {
             string: code,
             attributes: [
                 .font: font,
-                .foregroundColor: plainColor,
+                .foregroundColor: palette.plain,
                 .paragraphStyle: paragraph
             ]
         )
@@ -45,21 +75,21 @@ enum SyntaxHighlighter {
 
         // 1) 关键字
         let keywordPattern = "\\b(" + keywords.joined(separator: "|") + ")\\b"
-        apply(pattern: keywordPattern, color: keywordColor, to: result, source: code, range: full)
+        apply(pattern: keywordPattern, color: palette.keyword, to: result, source: code, range: full)
 
         // 2) 数字
-        apply(pattern: "\\b\\d+(\\.\\d+)?\\b", color: numberColor, to: result, source: code, range: full)
+        apply(pattern: "\\b\\d+(\\.\\d+)?\\b", color: palette.number, to: result, source: code, range: full)
 
         // 3) 字符串
         apply(
             pattern: "\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])*'",
-            color: stringColor, to: result, source: code, range: full
+            color: palette.string, to: result, source: code, range: full
         )
 
         // 4) 注释（最后覆盖）
         apply(
             pattern: "//[^\\n]*|/\\*[\\s\\S]*?\\*/",
-            color: commentColor, to: result, source: code, range: full
+            color: palette.comment, to: result, source: code, range: full
         )
 
         return result
@@ -85,7 +115,7 @@ enum SyntaxHighlighter {
 struct CodeTextView: UIViewRepresentable {
 
     let attributed: NSAttributedString
-    var topInset: CGFloat = 96
+    var topInset: CGFloat = 62
 
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
@@ -112,8 +142,9 @@ struct CodeTextView: UIViewRepresentable {
 struct CodePage: View {
 
     let url: URL
-    var topInset: CGFloat = 96
+    var topInset: CGFloat = 62
 
+    @Environment(\.colorScheme) private var scheme
     @State private var text: String?
     @State private var failed = false
 
@@ -143,7 +174,8 @@ struct CodePage: View {
                         text,
                         ext: url.pathExtension.lowercased(),
                         fontSize: CGFloat(AppSettings.shared.codeFontSize),
-                        topInset: topInset
+                        topInset: topInset,
+                        scheme: scheme
                     ),
                     topInset: topInset
                 )
@@ -162,7 +194,7 @@ struct CodePage: View {
                     .foregroundStyle(Theme.textTertiary)
             }
         } else {
-            ProgressView().tint(.white)
+            ProgressView().tint(Theme.textSecondary)
         }
     }
 
