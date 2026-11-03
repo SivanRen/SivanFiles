@@ -12,6 +12,8 @@ jobs:
     # macos-15 -> Xcode 16.x (iOS 18 SDK)。想用 iOS 26 SDK 可改成 macos-26
     runs-on: macos-15
     timeout-minutes: 40
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -91,3 +93,25 @@ jobs:
           path: build.log
           if-no-files-found: warn
           retention-days: 7
+
+      # 把编译报错推到独立的 ci-logs 分支，方便在没有 API token 的环境里直接 git pull 读日志
+      - name: Publish error log to ci-logs branch
+        if: failure()
+        run: |
+          set -x
+          mkdir -p /tmp/ci
+          grep -E "error:|fatal error:" build.log | sed -E 's#/Users/runner/work/[^/]+/[^/]+/##' | sort -u > /tmp/ci/errors.txt || true
+          head -n 400 /tmp/ci/errors.txt > /tmp/ci/errors-head.txt || true
+          cp build.log /tmp/ci/build.log || true
+
+          git config user.name "ci-bot"
+          git config user.email "ci-bot@users.noreply.github.com"
+          git checkout --orphan ci-logs || true
+          git rm -rf . --quiet || true
+          mkdir -p ci-log
+          cp /tmp/ci/errors.txt ci-log/errors.txt || true
+          cp /tmp/ci/errors-head.txt ci-log/errors-head.txt || true
+          cp /tmp/ci/build.log ci-log/build.log || true
+          git add -f ci-log
+          git commit -m "ci log for run ${{ github.run_number }}" || true
+          git push -f origin ci-logs
